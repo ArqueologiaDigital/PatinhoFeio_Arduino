@@ -146,6 +146,7 @@ void LED_PREPARACAO(bool value){
 void reset_CPU(){
   VAI_UM(false);
   TRANSBORDO(false);
+  CI(0x000);
   RE(0x000);
   RD(0x00);
   RI(0x00);
