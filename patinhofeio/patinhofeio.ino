@@ -196,9 +196,33 @@ void random_blink_demo(){
   led[i] = !led[i];
 }
 
+void register_LEDs_demo() {
+  //let's do a sine-wave effect on the
+  //12-bit panel data register:
+  static double t = 0;
+  int value = 0;
+  for (int i=0; i<12; i++){
+     if (i < (6 + 6 * sin(t*360)))
+       value |= (1 << i);
+  }
+  t+=0.001;
+  DADOS_DO_PAINEL(value);
+
+  //and let's display an incremental count at
+  // the instruction counter register:
+  static int count = 0;
+  CI(count++);
+
+  //while the overflow and carry bits will
+  //alternate their blinking:
+  VAI_UM((count/10)%2 == 0);
+  TRANSBORDO((count/10)%2 == 1);
+}
+
 void loop() {
-  sine_wave_demo();
+//  sine_wave_demo();
 //  random_blink_demo();
+  register_LEDs_demo();
 
   send_LED_data();
 }
