@@ -51,7 +51,7 @@ int _MODO; //CPU operation modes:
 void DADOS_DO_PAINEL(int value){
   _DADOS_DO_PAINEL = value;
   for (int i=0; i<12; i++){
-    led[0 + i] = (value & (1 << value));
+    led[0 + i] = (value & (1 << i));
   }
 }
 
@@ -65,60 +65,60 @@ void TRANSBORDO(bool value){
   led[13] = value;
 }
 
-void CI(int value){
-  _CI = value;
-  for (int i=0; i<12; i++){
-    led[14 + i] = (value & (1 << value));
-  }
-}
-
-void RE(int value){
-  _RE = value;
-  for (int i=0; i<12; i++){
-    led[26 + i] = (value & (1 << value));
-  }
-}
-
-void RD(int value){
-  _RD = value;
-  for (int i=0; i<8; i++){
-    led[38 + i] = (value & (1 << value));
-  }
-}
-
-void RI(int value){
-  _RI = value;
-  for (int i=0; i<8; i++){
-    led[46 + i] = (value & (1 << value));
-  }
-}
-
-void ACC(int value){
-  _ACC = value;
-  for (int i=0; i<8; i++){
-    led[54 + i] = (value & (1 << value));
-  }
-}
-
-void FASE(int value){
-  _FASE = value;
-  for (int i=1; i<=7; i++){
-    led[62 + (i-1)] = (_FASE == i);
-  }
-}
-
 void PARADO(bool value){
   // This represents that the CPU is stopped.
   // Only a startup command ("PARTIDA") can restart it.
   _PARADO = value;
-  led[69] = value;
+  led[14] = value;
 }
 
 void EXTERNO(bool value){
   // This represents that the CPU is stopped
   // waiting for an interrupt from an external device.
   _EXTERNO = value;
-  led[70] = value;
+  led[15] = value;
+}
+
+void CI(int value){
+  _CI = value;
+  for (int i=0; i<12; i++){
+    led[16 + i] = (value & (1 << i));
+  }
+}
+
+void RE(int value){
+  _RE = value;
+  for (int i=0; i<12; i++){
+    led[28 + i] = (value & (1 << i));
+  }
+}
+
+void RD(int value){
+  _RD = value;
+  for (int i=0; i<8; i++){
+    led[40 + i] = (value & (1 << i));
+  }
+}
+
+void RI(int value){
+  _RI = value;
+  for (int i=0; i<8; i++){
+    led[48 + i] = (value & (1 << i));
+  }
+}
+
+void ACC(int value){
+  _ACC = value;
+  for (int i=0; i<8; i++){
+    led[56 + i] = (value & (1 << i));
+  }
+}
+
+void FASE(int value){
+  _FASE = value;
+  for (int i=1; i<=7; i++){
+    led[64 + (i-1)] = (_FASE == i);
+  }
 }
 
 void MODO(int value){
