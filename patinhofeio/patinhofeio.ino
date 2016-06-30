@@ -41,12 +41,12 @@ int _FASE; //determines which cycle of a cpu instruction
 bool _PARADO; //CPU is stopped.
 bool _EXTERNO; //CPU is waiting interrupt.
 int _MODO; //CPU operation modes:
-#define NORMAL 1
-#define CICLO_UNICO 2
-#define INSTRUCAO_UNICA 3
-#define ENDERECAMENTO 4
-#define ARMAZENAMENTO 5
-#define EXPOSICAO 6
+#define NORMAL 1 //normal execution
+#define CICLO_UNICO 2 //single-cycle
+#define INSTRUCAO_UNICA 3//single-instruction
+#define ENDERECAMENTO 4//addressing mode
+#define ARMAZENAMENTO 5//data write mode
+#define EXPOSICAO 6//data read mode
 
 void DADOS_DO_PAINEL(int value){
   _DADOS_DO_PAINEL = value;
@@ -208,15 +208,35 @@ void register_LEDs_demo() {
   t+=0.001;
   DADOS_DO_PAINEL(value);
 
+  //the address register will have the a mirrored sine-wave
+  //that's why we flip the bits here:
+  RE(~value);
+
   //and let's display an incremental count at
   // the instruction counter register:
   static int count = 0;
-  CI(count++);
+  CI(count);
 
   //while the overflow and carry bits will
   //alternate their blinking:
   VAI_UM((count/10)%2 == 0);
   TRANSBORDO((count/10)%2 == 1);
+
+  //and the same kind of effect for these lights:
+  PARADO((count/6)%2 == 0);
+  EXTERNO((count/6)%2 == 1);
+
+  //These will blink a lot :-P
+  LED_ESPERA(count%2 == 0);
+  LED_PREPARACAO(count%2 == 0);
+  LED_INTERRUPCAO(count%2 == 0);
+
+  //Finally, these sets of lights will turn on sequentially:
+  FASE((count/5)%7 + 1);
+  MODO((count/10)%6);
+
+  count = (count+1)%(12*10*15*1000); // This wrap-around value is a multiple of
+                                     // the period of all demo-effects
 }
 
 void loop() {
