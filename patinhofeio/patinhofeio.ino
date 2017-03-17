@@ -174,7 +174,7 @@ void reset_CPU(){
 
 void load_example_hardcoded_program(){
   /*
-    HELLO WORLD PROGRAM that prints 
+    HELLO WORLD PROGRAM that prints
     "PATINHO FEIO" to the teletype:
   */
 
@@ -261,8 +261,8 @@ void register_LEDs_demo() {
   static double t = 0;
   int value = 0;
   for (int i=0; i<12; i++){
-     if ((i+0.5) < (6 + 6 * sin(t*360)))
-       value |= (1 << i);
+    if ((i+0.5) < (6 + 6 * sin(t*360)))
+      value |= (1 << i);
   }
   t+=0.001;
   DADOS_DO_PAINEL(value);
@@ -313,7 +313,7 @@ void INC_PC(){
 void run_one_instruction(){
   bool skip;
   int addr;
-  unsigned int tmp; 
+  unsigned int tmp;
   byte value, channel, function;
   byte idx;
   byte opcode = read_ram(_CI);
