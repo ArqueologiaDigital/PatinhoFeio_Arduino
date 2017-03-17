@@ -21,6 +21,7 @@
 //  polled via a chain of three-bit shift-registers
 //  (paralell input, serial output)
 
+#define DEMO 0
 #define LED_REGISTER_CLK 3
 #define LED_SERIAL_CLK 2
 #define LED_SERIAL_DATA 4
@@ -245,6 +246,8 @@ void send_LED_data(){
   delay(1); //is this delay really needed?
 }
 
+
+#if DEMO
 void sine_wave_demo() {
   static double t = 0;
   for (int i=0; i<NUM_LEDS; i++){
@@ -301,6 +304,7 @@ void register_LEDs_demo() {
   count = (count+1)%(12*10*15*1000); // This wrap-around value is a multiple of
                                      // the period of all demo-effects
 }
+#endif
 
 byte read_ram(int addr){
   return RAM[addr];
@@ -314,73 +318,187 @@ void inc_CI(){
   CI((_CI+1)%RAM_SIZE);
 }
 
+int compute_effective_address(int addr){
+  //TODO: implement-me!
+  return addr;
+}
+
+byte opcode;
+
+/*******************************
+CPU Instructions implementation
+********************************/
+
+void CARX_instruction(){
+  /* OPCODE: 0x50 */
+  //CARX = "Carga indexada": Load a value from a given indexed memory position into the accumulator
+  int tmp = (opcode & 0x0F) << 8 | read_ram(_CI);
+  inc_CI();
+  int idx = read_index_reg();
+  //TODO: compute_effective_address(m_idx + tmp);
+  ACC(read_ram(idx + tmp));
+}
+
+void LIMPO_instruction(){
+  /* OPCODE: 0x80 */
+  //LIMPO:
+  //     Clear accumulator and flags
+  ACC(0);
+  TRANSBORDO(0);
+  VAI_UM(0);
+}
+
+void INC_instruction(){
+  /* OPCODE: 0x85 */
+  //INC:
+  // Increment accumulator
+  ACC(_ACC+1);
+  TRANSBORDO(0); //TODO: fix-me (I'm not sure yet how to compute the flags here)
+  VAI_UM(0); //TODO: fix-me (I'm not sure yet how to compute the flags here)
+}
+
+void PARE_instruction(){
+  /* OPCODE: 0x9D */
+  //PARE="Pare":
+  //    Holds execution. This can only be recovered by
+  //    manually triggering execution again by
+  //    pressing the "Partida" (start) button in the panel
+  PARADO(true);
+  EXTERNO(false);
+}
+
+void TRI_instruction(){
+  /* OPCODE: 0x9E */
+  //TRI="Troca com Indexador":
+  //     Exchange the value of the accumulator with the index register
+  byte value = _ACC;
+  ACC(read_index_reg());
+  write_index_reg(value);
+}
+
+void XOR_instruction(){
+  /* OPCODE: 0xD2 */
+  //XOR: Computes the bitwise XOR of an immediate into the accumulator
+  ACC(_ACC ^ read_ram(_CI));
+  inc_CI();
+  //TODO: update T and V flags
+}
+
+void NAND_instruction(){
+  /* OPCODE: 0xD4 */
+  //NAND: Computes the bitwise XOR of an immediate into the accumulator
+  ACC(~(_ACC & read_ram(_CI)));
+  inc_CI();
+  //TODO: update T and V flags
+}
+
+void SOMI_instruction(){
+  /* OPCODE: 0xD8 */
+  //SOMI="Soma Imediato":
+  //Add an immediate into the accumulator
+  //TODO: set_flag(V, ((((int16_t) ACC) + ((int16_t) READ_BYTE_PATINHO(PC))) >> 8));
+  //TODO: set_flag(T, ((((int8_t) (ACC & 0x7F)) + ((int8_t) (READ_BYTE_PATINHO(PC) & 0x7F))) >> 7) == V);
+  ACC(_ACC + read_ram(_CI));
+  inc_CI();
+}
+
+void PLA_instruction(){
+  /* OPCODE: 0x0X */
+  //PLA = "Pula": Jump to address
+  int addr = (opcode & 0x0F) << 8 | read_ram(_CI);
+  addr = compute_effective_address(addr);
+  inc_CI();
+  CI(addr);
+}
+
+void ARM_instruction(){
+  /* OPCODE: 0x2X */
+  //ARM = "Armazena": Store the value of the accumulator into a given memory position
+  int addr = (opcode & 0x0F) << 8 | read_ram(_CI);
+  addr = compute_effective_address(addr);
+  inc_CI();
+  write_ram(addr, _ACC);
+}
+
+void SOM_instruction(){
+  /* OPCODE: 0x6X */
+  //SOM = "Soma": Add a value from a given memory position into the accumulator
+  int addr = (opcode & 0x0F) << 8 | read_ram(_CI);
+  addr = compute_effective_address(addr);
+  inc_CI();
+  ACC(_ACC + read_ram(addr));
+  //TODO: update V and T flags
+}
+
+void PLAN_instruction(){
+  /* OPCODE: 0xAX */
+  //PLAN = "Pula se ACC negativo": Jump to a given address if ACC is negative
+  int addr = (opcode & 0x0F) << 8 | read_ram(_CI);
+  addr = compute_effective_address(addr);
+  inc_CI();
+  if ((signed char) _ACC < 0){
+    CI(addr);
+  }
+}
+
+void SAI_instruction(byte channel){
+  /* OPCODE: 0xCX 0x8X */
+  /* SAI = "Output data to I/O device" */
+  //TODO: handle multiple device channels: m_iodev_write_cb[channel](ACC);
+  delay(1000/33); //This is REALLY BAD emulation-wise but it looks nice :-)
+  Serial.write(_ACC);
+}
+
+void SAL_instruction(byte channel, byte function){
+  /* OPCODE: 0xCX 0x2X */
+  //SAL="Salta"
+  //    Skips a couple bytes if a condition is met
+  bool skip = false;
+  switch(function){
+    case 1:
+      //TODO: implement-me! skip = (m_iodev_status[channel] == IODEV_READY);
+      skip = true;
+      break;
+    case 2: 
+      /* TODO:
+         skip = false;
+         if (! m_iodev_is_ok_cb[channel].isnull()
+            && m_iodev_is_ok_cb[channel](0))
+      */
+      skip = true;
+      break;
+    case 4:
+      /*TODO:
+         skip =false;
+         if (! m_iodev_IRQ_cb[channel].isnull()
+            && m_iodev_IRQ_cb[channel](0) == true)
+      */
+      skip = true;
+      break;
+  }
+  if (skip){
+    inc_CI();
+    inc_CI();
+  }
+}
+
+
+
 void run_one_instruction(){
-  bool skip;
-  int addr;
   unsigned int tmp;
   byte value, channel, function;
-  byte idx;
-  byte opcode = read_ram(_CI);
+  opcode = read_ram(_CI);
   inc_CI();
 
   switch (opcode){
-    case 0xD2:
-      //XOR: Computes the bitwise XOR of an immediate into the accumulator
-      ACC(_ACC ^ read_ram(_CI));
-      inc_CI();
-      //TODO: update T and V flags
-      return;
-    case 0xD4:
-      //NAND: Computes the bitwise XOR of an immediate into the accumulator
-      ACC(~(_ACC & read_ram(_CI)));
-      inc_CI();
-      //TODO: update T and V flags
-      return;
-    case 0xD8:
-      //SOMI="Soma Imediato":
-      //Add an immediate into the accumulator
-      //TODO: set_flag(V, ((((int16_t) ACC) + ((int16_t) READ_BYTE_PATINHO(PC))) >> 8));
-      //TODO: set_flag(T, ((((int8_t) (ACC & 0x7F)) + ((int8_t) (READ_BYTE_PATINHO(PC) & 0x7F))) >> 7) == V);
-      ACC(_ACC + read_ram(_CI));
-      inc_CI();
-      return;
-    case 0x80:
-      //LIMPO:
-      //     Clear accumulator and flags
-      ACC(0);
-      TRANSBORDO(0);
-      VAI_UM(0);
-      return;
-    case 0x9D:
-      //PARE="Pare":
-      //    Holds execution. This can only be recovered by
-      //    manually triggering execution again by
-      //    pressing the "Partida" (start) button in the panel
-      PARADO(true);
-      EXTERNO(false);
-      return;
-    case 0x9E:
-      //TRI="Troca com Indexador":
-      //     Exchange the value of the accumulator with the index register
-      value = _ACC;
-      ACC(read_index_reg());
-      write_index_reg(value);
-      return;
-    case 0x50:
-      //CARX = "Carga indexada": Load a value from a given indexed memory position into the accumulator
-      tmp = (opcode & 0x0F) << 8 | read_ram(_CI);
-      inc_CI();
-      idx = read_index_reg();
-      //TODO: compute_effective_address(m_idx + tmp);
-      ACC(read_ram(idx + tmp));
-      return;
-    case 0x85:
-      //INC:
-      // Increment accumulator
-      ACC(_ACC+1);
-      TRANSBORDO(0); //TODO: fix-me (I'm not sure yet how to compute the flags here)
-      VAI_UM(0); //TODO: fix-me (I'm not sure yet how to compute the flags here)
-      return;
+    case 0x50: CARX_instruction(); return;
+    case 0x80: LIMPO_instruction(); return;
+    case 0x85: INC_instruction(); return;
+    case 0x9D: PARE_instruction(); return;
+    case 0x9E: TRI_instruction(); return;
+    case 0xD2: XOR_instruction(); return;
+    case 0xD4: NAND_instruction(); return;
+    case 0xD8: SOMI_instruction(); return;
     default:
       Serial.print("OPCODE INVALIDO: ");
       Serial.println(opcode);
@@ -388,37 +506,10 @@ void run_one_instruction(){
     }
 
   switch (opcode & 0xF0){
-    case 0x00:
-      //PLA = "Pula": Jump to address
-      //TODO: compute_effective_address((m_opcode & 0x0F) << 8 | READ_BYTE_PATINHO(PC));
-      addr = (opcode & 0x0F) << 8 | read_ram(_CI);
-      inc_CI();
-      CI(addr);
-      return;
-    case 0x20:
-      //ARM = "Armazena": Store the value of the accumulator into a given memory position
-      //TODO: compute_effective_address((m_opcode & 0x0F) << 8 | READ_BYTE_PATINHO(PC));
-      addr = (opcode & 0x0F) << 8 | read_ram(_CI);
-      inc_CI();
-      write_ram(addr, _ACC);
-      return;
-    case 0x60:
-      //SOM = "Soma": Add a value from a given memory position into the accumulator
-      //compute_effective_address((m_opcode & 0x0F) << 8 | READ_BYTE_PATINHO(PC));
-      addr = (opcode & 0x0F) << 8 | read_ram(_CI);
-      inc_CI();
-      ACC(_ACC + read_ram(addr));
-      //TODO: update V and T flags
-      return;
-    case 0xA0:
-      //PLAN = "Pula se ACC negativo": Jump to a given address if ACC is negative
-      //TODO: compute_effective_address((m_opcode & 0x0F) << 8 | READ_BYTE_PATINHO(PC));
-      addr = (opcode & 0x0F) << 8 | read_ram(_CI);
-      inc_CI();
-      if ((signed char) _ACC < 0){
-        CI(addr);
-      }
-      return;
+    case 0x00: PLA_instruction(); return;
+    case 0x20: ARM_instruction(); return;
+    case 0x60: SOM_instruction(); return;
+    case 0xA0: PLAN_instruction(); return;
     case 0xC0:
       //Executes I/O functions
       //TODO: Implement-me!
@@ -428,53 +519,16 @@ void run_one_instruction(){
       function = value & 0x0F;
       switch(value & 0xF0){
         //TODO: case 0x10: ...
-        case 0x80:
-          /* SAI = "Output data to I/O device" */
-          //TODO: handle multiple device channels: m_iodev_write_cb[channel](ACC);
-          delay(1000/33); //This is REALLY BAD emulation-wise but it looks nice :-)
-          Serial.write(_ACC);
-          break;
-        case 0x20:
-          //SAL="Salta"
-          //    Skips a couple bytes if a condition is met
-          skip = false;
-          function = value & 0x0F;
-          switch(function){
-            case 1:
-              //TODO: implement-me! skip = (m_iodev_status[channel] == IODEV_READY);
-              skip = true;
-              break;
-            case 2:
-              /* TODO:
-                 skip = false;
-                 if (! m_iodev_is_ok_cb[channel].isnull()
-                 && m_iodev_is_ok_cb[channel](0)) */
-              skip = true;
-              break;
-            case 4:
-              /*TODO:
-                skip =false;
-                if (! m_iodev_IRQ_cb[channel].isnull()
-                && m_iodev_IRQ_cb[channel](0) == true)
-              */
-              skip = true;
-              break;
-            } // END - switch(function)
-          if (skip){
-            inc_CI();
-            inc_CI();
-          }
-          break; // END - case 0x20:
-
-        } // END - switch(value & 0xF0)
-
+        case 0x80: SAI_instruction(channel); break;
+        case 0x20: SAL_instruction(channel, function); break;
+      }
     default:
       Serial.print("OPCODE INVALIDO: ");
       Serial.println(opcode);
       PARADO(true);
       return;
-    } // END - switch (opcode & 0xF0)
-} // END - void run_one_instruction()
+    }
+}
 
 
 void loop() {
