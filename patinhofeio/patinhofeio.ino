@@ -174,7 +174,7 @@ void reset_CPU(){
 
 void load_example_hardcoded_program(){
   /*
-    HELLO WORLD PROGRAM that prints 
+    HELLO WORLD PROGRAM that prints
     "PATINHO FEIO" to the teletype:
   */
 
@@ -261,8 +261,8 @@ void register_LEDs_demo() {
   static double t = 0;
   int value = 0;
   for (int i=0; i<12; i++){
-     if ((i+0.5) < (6 + 6 * sin(t*360)))
-       value |= (1 << i);
+    if ((i+0.5) < (6 + 6 * sin(t*360)))
+      value |= (1 << i);
   }
   t+=0.001;
   DADOS_DO_PAINEL(value);
@@ -313,7 +313,7 @@ void INC_PC(){
 void run_one_instruction(){
   bool skip;
   int addr;
-  unsigned int tmp; 
+  unsigned int tmp;
   byte value, channel, function;
   byte idx;
   byte opcode = read_ram(_CI);
@@ -372,7 +372,7 @@ void run_one_instruction(){
     default:
       Serial.print("OPCODE INVALIDO: ");
       Serial.println(opcode);
-  }
+    }
 
   switch (opcode & 0xF0){
     case 0x00:
@@ -385,14 +385,14 @@ void run_one_instruction(){
     case 0x20:
       //ARM = "Armazena": Store the value of the accumulator into a given memory position
       //TODO: compute_effective_address((m_opcode & 0x0F) << 8 | READ_BYTE_PATINHO(PC));
-      int addr = (opcode & 0x0F) << 8 | read_ram(_CI);
+      addr = (opcode & 0x0F) << 8 | read_ram(_CI);
       INC_PC();
       write_ram(addr, _ACC);
       return;
     case 0x60:
       //SOM = "Soma": Add a value from a given memory position into the accumulator
       //compute_effective_address((m_opcode & 0x0F) << 8 | READ_BYTE_PATINHO(PC));
-      int addr = (opcode & 0x0F) << 8 | read_ram(_CI);
+      addr = (opcode & 0x0F) << 8 | read_ram(_CI);
       INC_PC();
       ACC(_ACC + read_ram(addr));
       //TODO: update V and T flags
@@ -400,7 +400,7 @@ void run_one_instruction(){
     case 0xA0:
       //PLAN = "Pula se ACC negativo": Jump to a given address if ACC is negative
       //TODO: compute_effective_address((m_opcode & 0x0F) << 8 | READ_BYTE_PATINHO(PC));
-      int addr = (opcode & 0x0F) << 8 | read_ram(_CI);
+      addr = (opcode & 0x0F) << 8 | read_ram(_CI);
       INC_PC();
       if ((signed char) _ACC < 0){
         CI(addr);
@@ -425,44 +425,45 @@ void run_one_instruction(){
           //    Skips a couple bytes if a condition is met
           skip = false;
           function = value & 0x0F;
-          switch(function)
-          {
+          switch(function){
             case 1:
               //TODO: implement-me! skip = (m_iodev_status[channel] == IODEV_READY);
               skip = true;
               break;
             case 2:
               /* TODO:
-              skip = false;
-              if (! m_iodev_is_ok_cb[channel].isnull()
-                  && m_iodev_is_ok_cb[channel](0)) */
+                 skip = false;
+                 if (! m_iodev_is_ok_cb[channel].isnull()
+                 && m_iodev_is_ok_cb[channel](0)) */
               skip = true;
               break;
             case 4:
               /*TODO:
-               skip =false;
-               if (! m_iodev_IRQ_cb[channel].isnull()
-                   && m_iodev_IRQ_cb[channel](0) == true)
+                skip =false;
+                if (! m_iodev_IRQ_cb[channel].isnull()
+                && m_iodev_IRQ_cb[channel](0) == true)
               */
               skip = true;
               break;
-          //default:
-          //  NADA!
-          }
+            } // END - switch(function)
           if (skip){
             INC_PC();
             INC_PC();
           }
-          break;
-//    default:
-//      Serial.print("OPCODE INVALIDO: ");
-//      Serial.println(opcode);
-//      return;
-  }
-}
+          break; // END - case 0x20:
+
+        } // END - switch(value & 0xF0)
+
+    default:
+      Serial.print("OPCODE INVALIDO: ");
+      Serial.println(opcode);
+      return;
+    } // END - switch (opcode & 0xF0)
+} // END - void run_one_instruction()
+
 
 void loop() {
-  run_one_intruction();
+  run_one_instruction();
 
   send_LED_data();
 }
