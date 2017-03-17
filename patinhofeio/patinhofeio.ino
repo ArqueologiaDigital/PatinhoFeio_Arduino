@@ -431,6 +431,7 @@ void run_one_instruction(){
         case 0x80:
           /* SAI = "Output data to I/O device" */
           //TODO: handle multiple device channels: m_iodev_write_cb[channel](ACC);
+          delay(1000/33); //This is REALLY BAD emulation-wise but it looks nice :-)
           Serial.write(_ACC);
           break;
         case 0x20:
