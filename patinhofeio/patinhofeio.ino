@@ -1,4 +1,4 @@
-// (c) 2016 Felipe Correa da Silva Sanches <juca@members.fsf.org>
+// (c) 2017 Felipe Correa da Silva Sanches <juca@members.fsf.org>
 // Licensed under the General Public License, version 2 (or later)
 //
 // This is an emulator for the Patinho Feio computer.
@@ -211,20 +211,24 @@ void load_example_hardcoded_program(){
   RAM[0x24] = 'O';
   RAM[0x25] = 0x0D;
   RAM[0x26] = 0x0A;
+
+  //This will make it run
+  //automatically one at boot:
+  CI(0x006);
+  PARADO(false);
 }
 
 void setup() {
-  for (int i=0; i<RAM_SIZE; i++){
-    RAM[i] = 0;
-  }
-
-  load_example_hardcoded_program();
-
+  Serial.begin(9600);
   pinMode(LED_SERIAL_CLK, OUTPUT);
   pinMode(LED_REGISTER_CLK, OUTPUT);
   pinMode(LED_SERIAL_DATA, OUTPUT);
+
+  for (int i=0; i<RAM_SIZE; i++){
+    RAM[i] = 0;
+  }
   reset_CPU();
-  Serial.begin(9600);
+  load_example_hardcoded_program();
 }
 
 void send_LED_data(){
@@ -306,7 +310,7 @@ void write_ram(int addr, byte value){
   RAM[addr % RAM_SIZE] = value;
 }
 
-void INC_PC(){
+void inc_CI(){
   CI((_CI+1)%RAM_SIZE);
 }
 
@@ -317,19 +321,19 @@ void run_one_instruction(){
   byte value, channel, function;
   byte idx;
   byte opcode = read_ram(_CI);
-  INC_PC();
+  inc_CI();
 
   switch (opcode){
     case 0xD2:
       //XOR: Computes the bitwise XOR of an immediate into the accumulator
       ACC(_ACC ^ read_ram(_CI));
-      INC_PC();
+      inc_CI();
       //TODO: update T and V flags
       return;
     case 0xD4:
       //NAND: Computes the bitwise XOR of an immediate into the accumulator
       ACC(~(_ACC & read_ram(_CI)));
-      INC_PC();
+      inc_CI();
       //TODO: update T and V flags
       return;
     case 0xD8:
@@ -338,7 +342,7 @@ void run_one_instruction(){
       //TODO: set_flag(V, ((((int16_t) ACC) + ((int16_t) READ_BYTE_PATINHO(PC))) >> 8));
       //TODO: set_flag(T, ((((int8_t) (ACC & 0x7F)) + ((int8_t) (READ_BYTE_PATINHO(PC) & 0x7F))) >> 7) == V);
       ACC(_ACC + read_ram(_CI));
-      INC_PC();
+      inc_CI();
       return;
     case 0x80:
       //LIMPO:
@@ -346,6 +350,14 @@ void run_one_instruction(){
       ACC(0);
       TRANSBORDO(0);
       VAI_UM(0);
+      return;
+    case 0x9D:
+      //PARE="Pare":
+      //    Holds execution. This can only be recovered by
+      //    manually triggering execution again by
+      //    pressing the "Partida" (start) button in the panel
+      PARADO(true);
+      EXTERNO(false);
       return;
     case 0x9E:
       //TRI="Troca com Indexador":
@@ -357,7 +369,7 @@ void run_one_instruction(){
     case 0x50:
       //CARX = "Carga indexada": Load a value from a given indexed memory position into the accumulator
       tmp = (opcode & 0x0F) << 8 | read_ram(_CI);
-      INC_PC();
+      inc_CI();
       idx = read_index_reg();
       //TODO: compute_effective_address(m_idx + tmp);
       ACC(read_ram(idx + tmp));
@@ -372,6 +384,7 @@ void run_one_instruction(){
     default:
       Serial.print("OPCODE INVALIDO: ");
       Serial.println(opcode);
+      PARADO(true);
     }
 
   switch (opcode & 0xF0){
@@ -379,21 +392,21 @@ void run_one_instruction(){
       //PLA = "Pula": Jump to address
       //TODO: compute_effective_address((m_opcode & 0x0F) << 8 | READ_BYTE_PATINHO(PC));
       addr = (opcode & 0x0F) << 8 | read_ram(_CI);
-      INC_PC();
+      inc_CI();
       CI(addr);
       return;
     case 0x20:
       //ARM = "Armazena": Store the value of the accumulator into a given memory position
       //TODO: compute_effective_address((m_opcode & 0x0F) << 8 | READ_BYTE_PATINHO(PC));
       addr = (opcode & 0x0F) << 8 | read_ram(_CI);
-      INC_PC();
+      inc_CI();
       write_ram(addr, _ACC);
       return;
     case 0x60:
       //SOM = "Soma": Add a value from a given memory position into the accumulator
       //compute_effective_address((m_opcode & 0x0F) << 8 | READ_BYTE_PATINHO(PC));
       addr = (opcode & 0x0F) << 8 | read_ram(_CI);
-      INC_PC();
+      inc_CI();
       ACC(_ACC + read_ram(addr));
       //TODO: update V and T flags
       return;
@@ -401,7 +414,7 @@ void run_one_instruction(){
       //PLAN = "Pula se ACC negativo": Jump to a given address if ACC is negative
       //TODO: compute_effective_address((m_opcode & 0x0F) << 8 | READ_BYTE_PATINHO(PC));
       addr = (opcode & 0x0F) << 8 | read_ram(_CI);
-      INC_PC();
+      inc_CI();
       if ((signed char) _ACC < 0){
         CI(addr);
       }
@@ -410,7 +423,7 @@ void run_one_instruction(){
       //Executes I/O functions
       //TODO: Implement-me!
       value = read_ram(_CI);
-      INC_PC();
+      inc_CI();
       channel = opcode & 0x0F;
       function = value & 0x0F;
       switch(value & 0xF0){
@@ -447,8 +460,8 @@ void run_one_instruction(){
               break;
             } // END - switch(function)
           if (skip){
-            INC_PC();
-            INC_PC();
+            inc_CI();
+            inc_CI();
           }
           break; // END - case 0x20:
 
@@ -457,13 +470,16 @@ void run_one_instruction(){
     default:
       Serial.print("OPCODE INVALIDO: ");
       Serial.println(opcode);
+      PARADO(true);
       return;
     } // END - switch (opcode & 0xF0)
 } // END - void run_one_instruction()
 
 
 void loop() {
-  run_one_instruction();
+  if (!_PARADO){
+    run_one_instruction();
+  }
 
   send_LED_data();
 }
