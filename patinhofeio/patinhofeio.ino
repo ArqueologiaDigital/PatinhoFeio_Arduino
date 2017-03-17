@@ -26,6 +26,9 @@
 #define LED_SERIAL_DATA 4
 #define NUM_LEDS 80
 
+#define INDEX_REG 0
+#define RAM_SIZE 256
+byte RAM[RAM_SIZE];
 bool led[NUM_LEDS];
 bool _VAI_UM;
 bool _TRANSBORDO;
@@ -47,6 +50,14 @@ int _MODO; //CPU operation modes:
 #define ENDERECAMENTO 4//addressing mode
 #define ARMAZENAMENTO 5//data write mode
 #define EXPOSICAO 6//data read mode
+
+byte read_index_reg(){
+  return RAM[INDEX_REG];
+}
+
+void write_index_reg(byte value){
+  RAM[INDEX_REG] = value;
+}
 
 void DADOS_DO_PAINEL(int value){
   _DADOS_DO_PAINEL = value;
@@ -161,11 +172,59 @@ void reset_CPU(){
   LED_PREPARACAO(false);
 }
 
+void load_example_hardcoded_program(){
+  /*
+    HELLO WORLD PROGRAM that prints 
+    "PATINHO FEIO" to the teletype:
+  */
+
+  RAM[0x06] = 0x1c;
+  RAM[0x07] = 0xca;
+  RAM[0x08] = 0x80;
+  RAM[0x09] = 0xca;
+  RAM[0x0A] = 0x21;
+  RAM[0x0B] = 0x00;
+  RAM[0x0C] = 0x0c;
+  RAM[0x0D] = 0x9e;
+  RAM[0x0E] = 0x85;
+  RAM[0x0F] = 0x20;
+  RAM[0x10] = 0x00;
+  RAM[0x11] = 0x60;
+  RAM[0x12] = 0x1B;
+  RAM[0x13] = 0x0A;
+  RAM[0x14] = 0x08;
+  RAM[0x15] = 0x9D;
+  RAM[0x16] = 0x00;
+  RAM[0x17] = 0x06;
+  RAM[0x18] = 0xF2;
+  RAM[0x19] = 'P';
+  RAM[0x1A] = 'A';
+  RAM[0x1B] = 'T';
+  RAM[0x1C] = 'I';
+  RAM[0x1D] = 'N';
+  RAM[0x1E] = 'H';
+  RAM[0x1F] = 'O';
+  RAM[0x20] = ' ';
+  RAM[0x21] = 'F';
+  RAM[0x22] = 'E';
+  RAM[0x23] = 'I';
+  RAM[0x24] = 'O';
+  RAM[0x25] = 0x0D;
+  RAM[0x26] = 0x0A;
+}
+
 void setup() {
+  for (int i=0; i<RAM_SIZE; i++){
+    RAM[i] = 0;
+  }
+
+  load_example_hardcoded_program();
+
   pinMode(LED_SERIAL_CLK, OUTPUT);
   pinMode(LED_REGISTER_CLK, OUTPUT);
   pinMode(LED_SERIAL_DATA, OUTPUT);
   reset_CPU();
+  Serial.begin(9600);
 }
 
 void send_LED_data(){
@@ -202,7 +261,7 @@ void register_LEDs_demo() {
   static double t = 0;
   int value = 0;
   for (int i=0; i<12; i++){
-     if (i < (6 + 6 * sin(t*360)))
+     if ((i+0.5) < (6 + 6 * sin(t*360)))
        value |= (1 << i);
   }
   t+=0.001;
@@ -239,10 +298,171 @@ void register_LEDs_demo() {
                                      // the period of all demo-effects
 }
 
+byte read_ram(int addr){
+  return RAM[addr];
+}
+
+void write_ram(int addr, byte value){
+  RAM[addr % RAM_SIZE] = value;
+}
+
+void INC_PC(){
+  CI((_CI+1)%RAM_SIZE);
+}
+
+void run_one_instruction(){
+  bool skip;
+  int addr;
+  unsigned int tmp; 
+  byte value, channel, function;
+  byte idx;
+  byte opcode = read_ram(_CI);
+  INC_PC();
+
+  switch (opcode){
+    case 0xD2:
+      //XOR: Computes the bitwise XOR of an immediate into the accumulator
+      ACC(_ACC ^ read_ram(_CI));
+      INC_PC();
+      //TODO: update T and V flags
+      return;
+    case 0xD4:
+      //NAND: Computes the bitwise XOR of an immediate into the accumulator
+      ACC(~(_ACC & read_ram(_CI)));
+      INC_PC();
+      //TODO: update T and V flags
+      return;
+    case 0xD8:
+      //SOMI="Soma Imediato":
+      //Add an immediate into the accumulator
+      //TODO: set_flag(V, ((((int16_t) ACC) + ((int16_t) READ_BYTE_PATINHO(PC))) >> 8));
+      //TODO: set_flag(T, ((((int8_t) (ACC & 0x7F)) + ((int8_t) (READ_BYTE_PATINHO(PC) & 0x7F))) >> 7) == V);
+      ACC(_ACC + read_ram(_CI));
+      INC_PC();
+      return;
+    case 0x80:
+      //LIMPO:
+      //     Clear accumulator and flags
+      ACC(0);
+      TRANSBORDO(0);
+      VAI_UM(0);
+      return;
+    case 0x9E:
+      //TRI="Troca com Indexador":
+      //     Exchange the value of the accumulator with the index register
+      value = _ACC;
+      ACC(read_index_reg());
+      write_index_reg(value);
+      return;
+    case 0x50:
+      //CARX = "Carga indexada": Load a value from a given indexed memory position into the accumulator
+      tmp = (opcode & 0x0F) << 8 | read_ram(_CI);
+      INC_PC();
+      idx = read_index_reg();
+      //TODO: compute_effective_address(m_idx + tmp);
+      ACC(read_ram(idx + tmp));
+      return;
+    case 0x85:
+      //INC:
+      // Increment accumulator
+      ACC(_ACC+1);
+      TRANSBORDO(0); //TODO: fix-me (I'm not sure yet how to compute the flags here)
+      VAI_UM(0); //TODO: fix-me (I'm not sure yet how to compute the flags here)
+      return;
+    default:
+      Serial.print("OPCODE INVALIDO: ");
+      Serial.println(opcode);
+  }
+
+  switch (opcode & 0xF0){
+    case 0x00:
+      //PLA = "Pula": Jump to address
+      //TODO: compute_effective_address((m_opcode & 0x0F) << 8 | READ_BYTE_PATINHO(PC));
+      addr = (opcode & 0x0F) << 8 | read_ram(_CI);
+      INC_PC();
+      CI(addr);
+      return;
+    case 0x20:
+      //ARM = "Armazena": Store the value of the accumulator into a given memory position
+      //TODO: compute_effective_address((m_opcode & 0x0F) << 8 | READ_BYTE_PATINHO(PC));
+      int addr = (opcode & 0x0F) << 8 | read_ram(_CI);
+      INC_PC();
+      write_ram(addr, _ACC);
+      return;
+    case 0x60:
+      //SOM = "Soma": Add a value from a given memory position into the accumulator
+      //compute_effective_address((m_opcode & 0x0F) << 8 | READ_BYTE_PATINHO(PC));
+      int addr = (opcode & 0x0F) << 8 | read_ram(_CI);
+      INC_PC();
+      ACC(_ACC + read_ram(addr));
+      //TODO: update V and T flags
+      return;
+    case 0xA0:
+      //PLAN = "Pula se ACC negativo": Jump to a given address if ACC is negative
+      //TODO: compute_effective_address((m_opcode & 0x0F) << 8 | READ_BYTE_PATINHO(PC));
+      int addr = (opcode & 0x0F) << 8 | read_ram(_CI);
+      INC_PC();
+      if ((signed char) _ACC < 0){
+        CI(addr);
+      }
+      return;
+    case 0xC0:
+      //Executes I/O functions
+      //TODO: Implement-me!
+      value = read_ram(_CI);
+      INC_PC();
+      channel = opcode & 0x0F;
+      function = value & 0x0F;
+      switch(value & 0xF0){
+        //TODO: case 0x10: ...
+        case 0x80:
+          /* SAI = "Output data to I/O device" */
+          //TODO: handle multiple device channels: m_iodev_write_cb[channel](ACC);
+          Serial.write(_ACC);
+          break;
+        case 0x20:
+          //SAL="Salta"
+          //    Skips a couple bytes if a condition is met
+          skip = false;
+          function = value & 0x0F;
+          switch(function)
+          {
+            case 1:
+              //TODO: implement-me! skip = (m_iodev_status[channel] == IODEV_READY);
+              skip = true;
+              break;
+            case 2:
+              /* TODO:
+              skip = false;
+              if (! m_iodev_is_ok_cb[channel].isnull()
+                  && m_iodev_is_ok_cb[channel](0)) */
+              skip = true;
+              break;
+            case 4:
+              /*TODO:
+               skip =false;
+               if (! m_iodev_IRQ_cb[channel].isnull()
+                   && m_iodev_IRQ_cb[channel](0) == true)
+              */
+              skip = true;
+              break;
+          //default:
+          //  NADA!
+          }
+          if (skip){
+            INC_PC();
+            INC_PC();
+          }
+          break;
+//    default:
+//      Serial.print("OPCODE INVALIDO: ");
+//      Serial.println(opcode);
+//      return;
+  }
+}
+
 void loop() {
-//  sine_wave_demo();
-//  random_blink_demo();
-  register_LEDs_demo();
+  run_one_intruction();
 
   send_LED_data();
 }
