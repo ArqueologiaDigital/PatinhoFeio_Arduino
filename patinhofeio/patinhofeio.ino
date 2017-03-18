@@ -21,7 +21,9 @@
 //  polled via a chain of three-bit shift-registers
 //  (paralell input, serial output)
 
-#define DEMO 0
+//#define DEMO 1
+//#define DEBUG
+
 #define LED_REGISTER_CLK 3
 #define LED_SERIAL_CLK 2
 #define LED_SERIAL_DATA 4
@@ -545,10 +547,29 @@ void run_one_instruction(){
 }
 
 
-void loop() {
+void emulator_loop(){
   if (!_PARADO){
     run_one_instruction();
   }
+}
+
+void loop() {
+
+#if DEMO == 1
+  //This is the most complete blinking demo
+  // which blinks every LED in the panel:
+  register_LEDs_demo();
+
+#elif DEMO == 2
+  random_blink_demo();
+
+#elif DEMO == 3
+  sine_wave_demo();
+
+#else
+  //Actual Patinho Feio Emulation:
+  emulator_loop();
+#endif
 
   send_LED_data();
 }
