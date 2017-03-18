@@ -29,10 +29,12 @@
 
 #define INDEX_REG 0
 #define RAM_SIZE 256
+
 byte RAM[RAM_SIZE];
 bool led[NUM_LEDS];
 bool _VAI_UM;
 bool _TRANSBORDO;
+
 int _RE; //12-bit "Registrador de Endereço" = Address Register
 int _RD; // 8-bit "Registrador de Dados" = Data Register
 int _RI; // 8-bit "Registrador de Instrução" = Instruction Register
@@ -40,11 +42,14 @@ int _ACC;// 8-bit "Acumulador" = Accumulator Register
 int _CI; //12-bit "Contador de Instrução" = Instruction Counter
 int _DADOS_DO_PAINEL; //12-bit of data provided by the user
                       //via panel toggle-switches
+
 int _FASE; //determines which cycle of a cpu instruction
           //we are currently executing
+
 bool _PARADO; //CPU is stopped.
 bool _EXTERNO; //CPU is waiting interrupt.
 int _MODO; //CPU operation modes:
+
 #define NORMAL 1 //normal execution
 #define CICLO_UNICO 2 //single-cycle
 #define INSTRUCAO_UNICA 3//single-instruction
@@ -179,39 +184,42 @@ void load_example_hardcoded_program(){
     "PATINHO FEIO" to the teletype:
   */
 
-  RAM[0x06] = 0x1c;
-  RAM[0x07] = 0xca;
-  RAM[0x08] = 0x80;
-  RAM[0x09] = 0xca;
-  RAM[0x0A] = 0x21;
-  RAM[0x0B] = 0x00;
-  RAM[0x0C] = 0x0c;
-  RAM[0x0D] = 0x9e;
-  RAM[0x0E] = 0x85;
-  RAM[0x0F] = 0x20;
-  RAM[0x10] = 0x00;
-  RAM[0x11] = 0x60;
-  RAM[0x12] = 0x1B;
-  RAM[0x13] = 0x0A;
-  RAM[0x14] = 0x08;
-  RAM[0x15] = 0x9D;
-  RAM[0x16] = 0x00;
-  RAM[0x17] = 0x06;
-  RAM[0x18] = 0xF2;
-  RAM[0x19] = 'P';
-  RAM[0x1A] = 'A';
-  RAM[0x1B] = 'T';
-  RAM[0x1C] = 'I';
-  RAM[0x1D] = 'N';
-  RAM[0x1E] = 'H';
-  RAM[0x1F] = 'O';
-  RAM[0x20] = ' ';
-  RAM[0x21] = 'F';
-  RAM[0x22] = 'E';
-  RAM[0x23] = 'I';
-  RAM[0x24] = 'O';
-  RAM[0x25] = 0x0D;
-  RAM[0x26] = 0x0A;
+  RAM[0x06] = 0x80;
+  RAM[0x07] = 0x9e;
+  RAM[0x08] = 0x50;
+  RAM[0x09] = 0x1c;
+  RAM[0x0A] = 0xca;
+  RAM[0x0B] = 0x80;
+  RAM[0x0C] = 0xca;
+  RAM[0x0D] = 0x21;
+  RAM[0x0E] = 0x00;
+  RAM[0x0F] = 0x0c;
+  RAM[0x10] = 0x9e;
+  RAM[0x11] = 0x85;
+  RAM[0x12] = 0x20;
+  RAM[0x13] = 0x00;
+  RAM[0x14] = 0x60;
+  RAM[0x15] = 0x1B;
+  RAM[0x16] = 0xA0;
+  RAM[0x17] = 0x08;
+  RAM[0x18] = 0x9D;
+  RAM[0x19] = 0x00;
+  RAM[0x1A] = 0x06;
+  RAM[0x1B] = 0xF2;
+  RAM[0x1C] = 'P';
+  RAM[0x1D] = 'A';
+  RAM[0x1E] = 'T';
+  RAM[0x1F] = 'I';
+  RAM[0x20] = 'N';
+  RAM[0x21] = 'H';
+  RAM[0x22] = 'O';
+  RAM[0x23] = ' ';
+  RAM[0x24] = 'F';
+  RAM[0x25] = 'E';
+  RAM[0x26] = 'I';
+  RAM[0x27] = 'O';
+  RAM[0x28] = 0x0D;
+  RAM[0x29] = 0x0A;
 
   //This will make it run
   //automatically one at boot:
@@ -445,7 +453,7 @@ void SAI_instruction(byte channel){
   /* OPCODE: 0xCX 0x8X */
   /* SAI = "Output data to I/O device" */
   //TODO: handle multiple device channels: m_iodev_write_cb[channel](ACC);
-  delay(1000/33); //This is REALLY BAD emulation-wise but it looks nice :-)
+  delay(1000/300); //This is REALLY BAD emulation-wise but it looks nice :-)
   Serial.write(_ACC);
 }
 
@@ -488,6 +496,16 @@ void run_one_instruction(){
   unsigned int tmp;
   byte value, channel, function;
   opcode = read_ram(_CI);
+
+  #ifdef DEBUG
+  Serial.print("CI: ");
+  Serial.print(_CI, HEX);
+  Serial.print(" OPCODE: ");
+  Serial.print(opcode, HEX);
+  Serial.print(" Mascarado: ");
+  Serial.println(opcode & 0xF0, HEX);
+  #endif
+
   inc_CI();
 
   switch (opcode){
@@ -499,11 +517,7 @@ void run_one_instruction(){
     case 0xD2: XOR_instruction(); return;
     case 0xD4: NAND_instruction(); return;
     case 0xD8: SOMI_instruction(); return;
-    default:
-      Serial.print("OPCODE INVALIDO: ");
-      Serial.println(opcode);
-      PARADO(true);
-    }
+  }
 
   switch (opcode & 0xF0){
     case 0x00: PLA_instruction(); return;
@@ -519,12 +533,12 @@ void run_one_instruction(){
       function = value & 0x0F;
       switch(value & 0xF0){
         //TODO: case 0x10: ...
-        case 0x80: SAI_instruction(channel); break;
-        case 0x20: SAL_instruction(channel, function); break;
+	    case 0x80: SAI_instruction(channel); return;
+        case 0x20: SAL_instruction(channel, function); return;
       }
     default:
       Serial.print("OPCODE INVALIDO: ");
-      Serial.println(opcode);
+      Serial.println(opcode, HEX);
       PARADO(true);
       return;
     }
