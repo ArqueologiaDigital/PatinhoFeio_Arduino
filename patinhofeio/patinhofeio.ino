@@ -184,29 +184,29 @@ void load_example_hardcoded_program(){
     "PATINHO FEIO" to the teletype:
   */
 
-  RAM[0x06] = 0x80;
-  RAM[0x07] = 0x9e;
-  RAM[0x08] = 0x50;
+  RAM[0x06] = 0x80; //006: 80     LIMPO
+  RAM[0x07] = 0x9e; //007: 9E     TRI
+  RAM[0x08] = 0x50; //008: 50 1C  CARX (IDX) + /01C
   RAM[0x09] = 0x1c;
-  RAM[0x0A] = 0xca;
+  RAM[0x0A] = 0xca; //00A: CA 80  SAI /A0             // output ACC value to the teletype (channel A)
   RAM[0x0B] = 0x80;
-  RAM[0x0C] = 0xca;
+  RAM[0x0C] = 0xca; //00C: CA 21  SAL /A1             // channel A (teletype), function 1 (check READY flag)
   RAM[0x0D] = 0x21;
-  RAM[0x0E] = 0x00;
-  RAM[0x0F] = 0x0c;
-  RAM[0x10] = 0x9e;
-  RAM[0x11] = 0x85;
-  RAM[0x12] = 0x20;
+  RAM[0x0E] = 0x00; //00E: 00 0C  PLA /00C            // Jump back to previous instruction (unless the teletype READY
+  RAM[0x0F] = 0x0c;                                   //   flag causes this instruction to be skipped).
+  RAM[0x10] = 0x9e; //010: 9E     TRI                 // TRI = Exchange values of IND reg and ACC reg.
+  RAM[0x11] = 0x85; //011: 85     INC                 // Increment ACC
+  RAM[0x12] = 0x20; //012: 20 00  ARM (IDX)           // Store ACC value into the IDX register.
   RAM[0x13] = 0x00;
-  RAM[0x14] = 0x60;
+  RAM[0x14] = 0x60; //014: 60 1B  SOM /01B            // Subtract the length of the string from the ACC value (see DB -14 below. "SOM" means "add")
   RAM[0x15] = 0x1B;
-  RAM[0x16] = 0xA0;
+  RAM[0x16] = 0xA0; //016: A0 08  PLAN /008           // Conditional jump to /008 (jumps if ACC is negative)
   RAM[0x17] = 0x08;
-  RAM[0x18] = 0x9D;
-  RAM[0x19] = 0x00;
-  RAM[0x1A] = 0x06;
-  RAM[0x1B] = 0xF2;
-  RAM[0x1C] = 'P';
+  RAM[0x18] = 0x9D; //018: 9D     PARE                // Halt the CPU. Can be restarted by manually pushing the PARTIDA (startup) panel button.
+  RAM[0x19] = 0x00; //019: 00 06  PLA /006            // If you restart the CPU, this is the next instruction, which jumps straight back to the
+  RAM[0x1A] = 0x06;                                   //   routine entry point, effectively causing the whole program to run once again.
+  RAM[0x1B] = 0xF2; //01B: F2     DB -14              // This is the 2's complement for -len(string)
+  RAM[0x1C] = 'P';  //01C: "PATINHO FEIO\n"           // This is the string.
   RAM[0x1D] = 'A';
   RAM[0x1E] = 'T';
   RAM[0x1F] = 'I';
