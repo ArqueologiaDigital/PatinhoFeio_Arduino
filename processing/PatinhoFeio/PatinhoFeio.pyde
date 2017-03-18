@@ -9,6 +9,24 @@ BIG_INC = 46
 
 leds = []
 
+def red_ON():
+  fill(255, 0, 0)
+
+def red_OFF():
+  fill(128, 0, 0)
+
+def green_ON():
+  fill(0, 255, 0)
+
+def green_OFF():
+  fill(0, 128, 0)
+
+def white_ON():
+  fill(255, 255, 255)
+
+def white_OFF():
+  fill(128, 128, 128)
+
 def dados_painel(val):
     global leds
     base_x, base_y = 109, 474
@@ -16,17 +34,17 @@ def dados_painel(val):
     for a, b in enumerate(range(11, -1, -1)):
         leds[i+a] = ((val & (1 << a)) == (1 << a))
         if leds[i+a]:
-            fill(0, 255, 0)
+            red_ON()
         else:
-            fill(255, 0, 0)
+            red_OFF()
         ellipse(base_x + BIG_INC*b, base_y, BIG_LED, BIG_LED)
         
     base_x, base_y = 434, 277
     for a, b in enumerate(range(11, -1, -1)):
         if leds[i+a]:
-            fill(0, 255, 0)
+            red_ON()
         else:
-            fill(255, 0, 0)
+            red_OFF()
         ellipse(base_x + SMALL_INC*b, base_y, SMALL_LED, SMALL_LED)
 
         
@@ -34,36 +52,36 @@ def vai_um(val):
     base_x, base_y = 600, 170
     leds[12] = True if val == 1 else False
     if leds[12]:
-        fill(0, 255, 0)
+        red_ON()
     else:
-        fill(255, 0, 0)
+        red_OFF()
     ellipse(base_x , base_y, BIG_LED, BIG_LED)
     
 def transbordo(val):
     base_x, base_y = 436, 170
     leds[13] = True if val == 1 else False
     if leds[13]:
-        fill(0, 255, 0)
+        red_ON()
     else:
-        fill(255, 0, 0)
+        red_OFF()
     ellipse(base_x , base_y, BIG_LED, BIG_LED)
 
 def parado(val):
     base_x, base_y = 340, 378
     leds[14] = True if val == 1 else False
     if leds[14]:
-        fill(0, 255, 0)
+        white_ON()
     else:
-        fill(255, 0, 0)
+        white_OFF()
     ellipse(base_x , base_y, BIG_LED, BIG_LED)
     
 def externo(val):
     base_x, base_y = 401, 378
     leds[15] = True if val == 1 else False
     if leds[15]:
-        fill(0, 255, 0)
+        white_ON()
     else:
-        fill(255, 0, 0)
+        white_OFF()
     ellipse(base_x , base_y, BIG_LED, BIG_LED)
 
 #ci -> Endreço de Instrução
@@ -74,9 +92,9 @@ def ci(val):
     for a, b in enumerate(range(11, -1, -1)):
         leds[i+a] = ((val & (1 << a)) == (1 << a))
         if leds[i+a]:
-            fill(0, 255, 0)
+            red_ON()
         else:
-            fill(255, 0, 0)
+            red_OFF()
         ellipse(base_x + SMALL_INC*b, base_y, SMALL_LED, SMALL_LED)
 
 # re -> Endereço na Memória
@@ -87,9 +105,9 @@ def re(val):
     for a, b in enumerate(range(11, -1, -1)):
         leds[i+a] = ((val & (1 << a)) == (1 << a))
         if leds[i+a]:
-            fill(0, 255, 0)
+            red_ON()
         else:
-            fill(255, 0, 0)
+            red_OFF()
         ellipse(base_x + SMALL_INC*b, base_y, SMALL_LED, SMALL_LED)
 
 # rd -> Dados da Memória
@@ -100,9 +118,9 @@ def rd(val):
     for a, b in enumerate(range(7, -1, -1)):
         leds[i+a] = ((val & (1 << a)) == (1 << a))
         if leds[i+a]:
-            fill(0, 255, 0)
+            red_ON()
         else:
-            fill(255, 0, 0)
+            red_OFF()
         ellipse(base_x + SMALL_INC*b, base_y, SMALL_LED, SMALL_LED)
 
 # ri -> Código de Instrução
@@ -113,9 +131,9 @@ def ri(val):
     for a, b in enumerate(range(7, -1, -1)):
         leds[i+a] = ((val & (1 << a)) == (1 << a))
         if leds[i+a]:
-            fill(0, 255, 0)
+            red_ON()
         else:
-            fill(255, 0, 0)
+            red_OFF()
         ellipse(base_x + SMALL_INC*b, base_y, SMALL_LED, SMALL_LED)
 
 # acc -> Acumulador
@@ -126,9 +144,9 @@ def acc(val):
     for a, b in enumerate(range(7, -1, -1)):
         leds[i+a] = ((val & (1 << a)) == (1 << a))
         if leds[i+a]:
-            fill(0, 255, 0)
+            red_ON()
         else:
-            fill(255, 0, 0)
+            red_OFF()
         ellipse(base_x + SMALL_INC*b, base_y, SMALL_LED, SMALL_LED)
 
 # TODO: FASE
@@ -142,9 +160,9 @@ def modo(val):
     for a, b in enumerate(range(5, -1, -1)):
         leds[i+a] = ((val & (1 << a)) == (1 << a))
         if leds[i+a]:
-            fill(0, 255, 0)
+            green_ON()
         else:
-            fill(255, 0, 0)
+            green_OFF()
         ellipse(base_x + inc*b, base_y, s, s)
         
 def espera(val):
@@ -152,9 +170,9 @@ def espera(val):
     s = 19
     leds[13] = True if val == 1 else False
     if leds[13]:
-        fill(0, 255, 0)
+        green_ON()
     else:
-        fill(255, 0, 0)
+        green_OFF()
     ellipse(base_x , base_y, s, s)
     
 def interrupcao(val):
@@ -162,9 +180,9 @@ def interrupcao(val):
     s = 19
     leds[13] = True if val == 1 else False
     if leds[13]:
-        fill(0, 255, 0)
+        green_ON()
     else:
-        fill(255, 0, 0)
+        green_OFF()
     ellipse(base_x , base_y, s, s)
     
 def preparacao(val):
@@ -172,9 +190,9 @@ def preparacao(val):
     s = 19
     leds[13] = True if val == 1 else False
     if leds[13]:
-        fill(0, 255, 0)
+        green_ON()
     else:
-        fill(255, 0, 0)
+        green_OFF()
     ellipse(base_x , base_y, s, s)
 
 
