@@ -6,6 +6,7 @@ SMALL_INC = 15
 BIG_LED = 12
 BIG_INC = 46
 
+buff = []
 
 leds = []
 
@@ -44,10 +45,11 @@ def white_OFF():
 
 def dados_painel(val):
     global leds
-    print "received: ", val
+    print "dados_painel: ", val
     base_x, base_y = 109, 474
     i = 0
     for a, b in enumerate(range(11, -1, -1)):
+        print leds[i+a], a, ((val & (1 << a)) == (1 << a))
         leds[i+a] = ((val & (1 << a)) == (1 << a))
         if leds[i+a]:
             red_ON()
@@ -234,20 +236,29 @@ def setup():
     
     # print(Serial.list())
     portName = '/dev/ttyACM0' # Pick last serial port in list
-    try:
-        myPort = Serial(this, portName, 115200)
-        myPort.bufferUntil(10)
-    except:
-        pass
-    
-    pato = loadImage("./pato.png")
-    image(pato, 0, 0)
+    # try:
+    #     myPort = Serial(this, portName, 115200)
+    #     myPort.bufferUntil(10)
+    # except:
+    #     pass
 
+    myPort = Serial(this, portName, 115200)
+    myPort.bufferUntil(10)
+    
+    pato = loadImage("/tmp/pato.png")
+    image(pato, 0, 0)
+    frameRate(5)
+
+# ccc = 0
 def draw():
-    fill(255, 0, 0)
+    # global ccc
+    global buff
+    # ccc = ccc + 1
+    # print ccc
+    # fill(255, 0, 0)
     #ellipse(146, 123, 8, 8) # memoria
-    if mousePressed:
-        print(mouseX, mouseY)
+    # if mousePressed:
+    #     print(mouseX, mouseY)
     #ellipse(109, 474, 12, 12)
     # dados_painel(11)
     # vai_um(1)
@@ -263,15 +274,20 @@ def draw():
     # espera(1)
     # interrupcao(0)
     # preparacao(1)
+    # dados_painel(binary_str_to_int(buff[0:12]))
+    if len(buff) >= 80:
+        update_panel(buff)
+    else:
+        print 'buff:', len(buff), buff
      
 def serialEvent(evt):
+    global buff
     data = evt.readString()
-    print data
     if data.startswith('LEDS:'):
         split = data.split(':')
         if len(split) == 2:
-            update_panel(split[1])
-            print('*************')
+            # update_panel(split[1])
+            buff = split[1]
     elif data.startswith('TTY:'):
         split = data.split(':')
         if len(split) == 2:
@@ -279,23 +295,29 @@ def serialEvent(evt):
             print 'Teletype: ', split[1]
 
 
+def binary_str_to_int(lst):
+    if not lst:
+        return 0
+    return reduce(lambda x,y:x+y, [int(v)<<i for i, v in enumerate(reversed(lst))])
+
+
 def update_panel(status):
-    print("DADOS PAINEL", [int(a) for a in status[0:12]])
+    # print("DADOS PAINEL", [int(a) for a in status[0:12]])
     global leds
-    dados_painel([int(a) for a in status[0:12]])
+    dados_painel(binary_str_to_int(status[0:12]))
     vai_um(int(status[12]))
     transbordo(int(status[13]))
     parado(int(status[14]))
     externo(int(status[15]))
-    ci([int(a) for a in status[16:28]])
-    re([int(a) for a in status[28:40]])
-    rd([int(a) for a in status[40:8]])
-    ri([int(a) for a in status[48:56]])
-    acc([int(a) for a in status[56:64]])
-    modo([int(a) for a in status[71:77]])
+    ci(binary_str_to_int(status[16:28]))
+    re(binary_str_to_int(status[28:40]))
+    rd(binary_str_to_int(status[40:8]))
+    ri(binary_str_to_int(status[48:56]))
+    acc(binary_str_to_int(status[56:64]))
+    modo(binary_str_to_int(status[71:77]))
     espera(int(status[77]))
     interrupcao(int(status[78]))
     preparacao(int(status[79]))
     
-    print("DADOS PAINEL DONE")
-    print([int(i) for i in leds])
+    # print("DADOS PAINEL DONE")
+    # print([int(i) for i in leds])
