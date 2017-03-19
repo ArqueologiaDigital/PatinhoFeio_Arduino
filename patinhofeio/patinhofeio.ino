@@ -231,7 +231,7 @@ void load_example_hardcoded_program(){
 }
 
 void setup() {
-  Serial.begin(9600);
+  Serial.begin(115200);
   pinMode(LED_SERIAL_CLK, OUTPUT);
   pinMode(LED_REGISTER_CLK, OUTPUT);
   pinMode(LED_SERIAL_DATA, OUTPUT);
@@ -767,7 +767,9 @@ void SAI_instruction(byte channel){
   /* SAI = "Output data to I/O device" */
   //TODO: handle multiple device channels: m_iodev_write_cb[channel](ACC);
   delay(1000/300); //This is REALLY BAD emulation-wise but it looks nice :-)
+  Serial.print("TTY:");
   Serial.write(_ACC);
+  Serial.print('\n');
 }
 
 void IO_instructions(){
@@ -794,7 +796,6 @@ void PUG_instruction(){
   /* OPCODE: 0xFX */
   //TODO: Implement-me!
 }
-
 
 void XOR_instruction(){
   /* OPCODE: 0xD2 */
@@ -829,7 +830,6 @@ void CARI_instruction(){
   ACC(read_ram(_CI));
   inc_CI();
 }
-
 
 void IND_instruction(){
   //TODO: Implement-me!
@@ -920,7 +920,6 @@ void run_one_instruction(){
     }
 }
 
-
 void emulator_loop(){
   if (!_PARADO){
     run_one_instruction();
@@ -945,5 +944,11 @@ void loop() {
   emulator_loop();
 #endif
 
-  send_LED_data();
+  //send_LED_data();
+  Serial.print("LEDS:");
+  for (int i=0; i < NUM_LEDS; i++) {
+	Serial.print(led[i], HEX);
+  }
+  Serial.print("\n");
+  delay(2000);
 }
