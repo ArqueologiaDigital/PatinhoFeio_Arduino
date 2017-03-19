@@ -12,26 +12,24 @@ leds = []
 def red_ON():
   fill(255, 0, 0)
 
-
 def red_OFF():
   fill(128, 0, 0)
-
 
 def green_ON():
   fill(0, 255, 0)
 
-
 def green_OFF():
   fill(0, 128, 0)
-
 
 def white_ON():
   fill(255, 255, 255)
 
-
 def white_OFF():
   fill(128, 128, 128)
 
+RED = [red_ON, red_OFF]
+GREEN = [green_ON, green_OFF]
+WHITE = [white_ON, white_OFF]
 
 def dados_painel(val):
     global leds
@@ -53,46 +51,26 @@ def dados_painel(val):
             red_OFF()
         ellipse(base_x + SMALL_INC*b, base_y, SMALL_LED, SMALL_LED)
 
-        
-def vai_um(val):
-    base_x, base_y = 600, 170
-    leds[12] = True if val == 1 else False
-    if leds[12]:
-        red_ON()
-    else:
-        red_OFF()
-    ellipse(base_x , base_y, SMALL_LED, SMALL_LED)
 
+def LED(led_id, base_x, base_y, led_size, ON_OFF_callbacks, val):
+    leds[led_id] = True if val == 1 else False
+    if leds[led_id]:
+        ON_OFF_callbacks[0]()
+    else:
+        ON_OFF_callbacks[1]()
+    ellipse(base_x , base_y, led_size, led_size)
+
+def vai_um(val):
+    LED(12, 600, 170, SMALL_LED, RED, val)
 
 def transbordo(val):
-    base_x, base_y = 436, 170
-    leds[13] = True if val == 1 else False
-    if leds[13]:
-        red_ON()
-    else:
-        red_OFF()
-    ellipse(base_x , base_y, SMALL_LED, SMALL_LED)
-
+    LED(13, 436, 170, SMALL_LED, RED, val)
 
 def parado(val):
-    base_x, base_y = 340, 378
-    leds[14] = True if val == 1 else False
-    if leds[14]:
-        white_ON()
-    else:
-        white_OFF()
-    ellipse(base_x , base_y, BIG_LED, BIG_LED)
-
+    LED(13, 340, 378, BIG_LED, WHITE, val)
 
 def externo(val):
-    base_x, base_y = 401, 378
-    leds[15] = True if val == 1 else False
-    if leds[15]:
-        white_ON()
-    else:
-        white_OFF()
-    ellipse(base_x , base_y, BIG_LED, BIG_LED)
-
+    LED(15, 401, 378, BIG_LED, WHITE, val)
 
 #ci -> Endreço de Instrução
 def ci(val):
