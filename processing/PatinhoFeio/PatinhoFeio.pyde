@@ -62,7 +62,7 @@ def vai_um(val):
         red_ON()
     else:
         red_OFF()
-    ellipse(base_x , base_y, BIG_LED, BIG_LED)
+    ellipse(base_x , base_y, SMALL_LED, SMALL_LED)
 
 
 def transbordo(val):
@@ -72,7 +72,7 @@ def transbordo(val):
         red_ON()
     else:
         red_OFF()
-    ellipse(base_x , base_y, BIG_LED, BIG_LED)
+    ellipse(base_x , base_y, SMALL_LED, SMALL_LED)
 
 
 def parado(val):
