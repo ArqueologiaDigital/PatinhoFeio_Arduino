@@ -263,7 +263,7 @@ def serialEvent(evt):
 def binary_str_to_int(lst):
     if not lst:
         return 0
-    return reduce(lambda x,y:x+y, [int(v)<<i for i, v in enumerate(reversed(lst))])
+    return reduce(lambda x,y:x+y, [int(v)<<i for i, v in enumerate(lst)])
 
 
 def update_panel(status):
