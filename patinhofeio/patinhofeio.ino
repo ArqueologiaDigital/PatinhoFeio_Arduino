@@ -951,5 +951,4 @@ void loop() {
 	Serial.print(led[i], HEX);
   }
   Serial.print("\n");
-  delay(2000);
 }
