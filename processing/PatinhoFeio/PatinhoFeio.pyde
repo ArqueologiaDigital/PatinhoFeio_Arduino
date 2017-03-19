@@ -7,7 +7,6 @@ BIG_LED = 12
 BIG_INC = 46
 
 buff = []
-
 leds = []
 
 def red_ON():
@@ -221,30 +220,24 @@ def setup():
     for i in range(80):
         leds.append(False)
     dados_painel(11)
-    # print(leds)
-    
-    # print(Serial.list())
-    portName = '/dev/ttyACM0' # Pick last serial port in list
-    # try:
-    #     myPort = Serial(this, portName, 115200)
-    #     myPort.bufferUntil(10)
-    # except:
-    #     pass
-
+    portName = '/dev/ttyACM0'
     myPort = Serial(this, portName, 115200)
     myPort.bufferUntil(10)
     
-    pato = loadImage("/tmp/pato.png")
+    pato = loadImage("pato.png")
     image(pato, 0, 0)
     frameRate(5)
 
 
 def draw():
     global buff
-    if len(buff) == 80:
-        update_panel(buff)
+    if len(buff) == 20:
+        status = [True] * 80
+        for i in xrange(80):
+            status[i] = (int(buff[i/4], 16) & (1 << i%4) != 0)
+        update_panel(status)
     else:
-        print 'There is not enough data to update panel'
+        print ('There is not enough data to update panel. len={}'.format(len(buff)))
     
     
 def serialEvent(evt):

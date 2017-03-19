@@ -22,7 +22,7 @@
 //  polled via a chain of three-bit shift-registers
 //  (paralell input, serial output)
 
-//#define DEMO 1
+#define DEMO 1
 //#define DEBUG
 
 #define LED_REGISTER_CLK 3
@@ -947,8 +947,13 @@ void loop() {
 
   //send_LED_data();
   Serial.print("LEDS:");
-  for (int i=0; i < NUM_LEDS; i++) {
-	Serial.print(led[i], HEX);
+  for (int b=0; b < NUM_LEDS; b+=4) {
+    byte value = 0;
+    for (int i=0; i<4; i++){
+      value <<= 1;
+      if (led[b+i]) value |= 1;
+    }
+	  Serial.print(value, HEX);
   }
   Serial.print("\n");
 }
