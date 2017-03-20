@@ -1,6 +1,6 @@
 // (c) 2017 Felipe Correa da Silva Sanches <juca@members.fsf.org>
 // (c) 2017 Tiago Queiroz <https://github.com/belimawr>
-// Licensed under the General Public License, version 2 (or later)
+// Licensed under the GNU General Public License, version 2 (or later)
 //
 // This is an emulator for the Patinho Feio computer.
 // More info about this early 70's Brazilian pioneer computer

@@ -1,3 +1,6 @@
+// (c) 2017 Tiago Queiroz <https://github.com/belimawr>
+// (c) 2017 Felipe Correa da Silva Sanches <juca@members.fsf.org>
+// Licensed under the GNU General Public License, version 2 (or later)
 add_library('serial')
 
 SMALL_LED = 8
