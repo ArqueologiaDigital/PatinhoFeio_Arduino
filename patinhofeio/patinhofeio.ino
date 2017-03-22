@@ -39,27 +39,29 @@ bool led[NUM_LEDS];
 bool _VAI_UM;
 bool _TRANSBORDO;
 
-int _RE; //12-bit "Registrador de Endereço" = Address Register
-int _RD; // 8-bit "Registrador de Dados" = Data Register
-int _RI; // 8-bit "Registrador de Instrução" = Instruction Register
-int _ACC;// 8-bit "Acumulador" = Accumulator Register
-int _CI; //12-bit "Contador de Instrução" = Instruction Counter
-int _DADOS_DO_PAINEL; //12-bit of data provided by the user
-                      //via panel toggle-switches
+int _RE;              // 12-bit "Registrador de Endereço" = Address Register
+int _RD;              //  8-bit "Registrador de Dados" = Data Register
+int _RI;              //  8-bit "Registrador de Instrução" = Instruction Register
+int _ACC;             //  8-bit "Acumulador" = Accumulator Register
+int _CI;              // 12-bit "Contador de Instrução" = Instruction Counter
+int _DADOS_DO_PAINEL; // 12-bit of data provided by the user
+                      // via panel toggle-switches
 
 int _FASE; //determines which cycle of a cpu instruction
-          //we are currently executing
+           //we are currently executing
 
-bool _PARADO; //CPU is stopped.
+bool _PARADO;  //CPU is stopped.
 bool _EXTERNO; //CPU is waiting interrupt.
-int _MODO; //CPU operation modes:
+int _MODO;     //CPU operation modes:
+bool indirect_addressing;
+bool scheduled_IND_bit_reset;
 
-#define NORMAL 1 //normal execution
-#define CICLO_UNICO 2 //single-cycle
-#define INSTRUCAO_UNICA 3//single-instruction
-#define ENDERECAMENTO 4//addressing mode
-#define ARMAZENAMENTO 5//data write mode
-#define EXPOSICAO 6//data read mode
+#define NORMAL 1           // normal execution
+#define CICLO_UNICO 2      // single-cycle
+#define INSTRUCAO_UNICA 3  // single-instruction
+#define ENDERECAMENTO 4    // addressing mode
+#define ARMAZENAMENTO 5    // data write mode
+#define EXPOSICAO 6        // data read mode
 
 byte read_index_reg(){
   return RAM[INDEX_REG];
@@ -180,6 +182,8 @@ void reset_CPU(){
   LED_ESPERA(false);
   LED_INTERRUPCAO(false);
   LED_PREPARACAO(false);
+  indirect_addressing = false;
+  scheduled_IND_bit_reset = false;
 }
 
 void load_example_hardcoded_program(){
@@ -330,8 +334,12 @@ void inc_CI(){
   CI((_CI+1)%RAM_SIZE);
 }
 
-int compute_effective_address(int addr){
-  //TODO: implement-me!
+unsigned int compute_effective_address(unsigned int addr){
+  if (indirect_addressing){
+    addr = (read_ram(addr+1) << 8) | read_ram(addr);
+    if (addr & 0x1000)
+      return compute_effective_address(addr & 0xFFF);
+  }
   return addr;
 }
 
@@ -344,7 +352,7 @@ CPU Instructions implementation
 void PLA_instruction(){
   /* OPCODE: 0x0X */
   //PLA = "Pula": Jump to address
-  int addr = (opcode & 0x0F) << 8 | read_ram(_CI);
+  unsigned int addr = (opcode & 0x0F) << 8 | read_ram(_CI);
   addr = compute_effective_address(addr);
   inc_CI();
   CI(addr);
@@ -353,7 +361,7 @@ void PLA_instruction(){
 void PLAX_instruction(){
   /* OPCODE: 0x1X */
   //PLAX = "Pula indexado": Jump to indexed address
-  int addr = (opcode & 0x0F) << 8 | read_ram(_CI);
+  unsigned int addr = (opcode & 0x0F) << 8 | read_ram(_CI);
   inc_CI();
   byte idx = read_index_reg();
   addr = compute_effective_address(idx + addr);
@@ -363,7 +371,7 @@ void PLAX_instruction(){
 void ARM_instruction(){
   /* OPCODE: 0x2X */
   //ARM = "Armazena": Store the value of the accumulator into a given memory position
-  int addr = (opcode & 0x0F) << 8 | read_ram(_CI);
+  unsigned int addr = (opcode & 0x0F) << 8 | read_ram(_CI);
   addr = compute_effective_address(addr);
   inc_CI();
   write_ram(addr, _ACC);
@@ -372,7 +380,7 @@ void ARM_instruction(){
 void ARMX_instruction(){
   /* OPCODE: 0x3X */
   //ARMX = "Armazena indexado": Store the value of the accumulator into a given indexed memory position
-  int addr = (opcode & 0x0F) << 8 | read_ram(_CI);
+  unsigned int addr = (opcode & 0x0F) << 8 | read_ram(_CI);
   inc_CI();
   byte idx = read_index_reg();
   addr = compute_effective_address(idx + addr);
@@ -382,7 +390,7 @@ void ARMX_instruction(){
 void CAR_instruction(){
   /* OPCODE: 0x4X */
   //CAR = "Carrega": Load a value from a given memory position into the accumulator
-  int addr = (opcode & 0x0F) << 8 | read_ram(_CI);
+  unsigned int addr = (opcode & 0x0F) << 8 | read_ram(_CI);
   inc_CI();
   addr = compute_effective_address(addr);
   ACC(read_ram(addr));
@@ -391,9 +399,9 @@ void CAR_instruction(){
 void CARX_instruction(){
   /* OPCODE: 0x5X */
   //CARX = "Carga indexada": Load a value from a given indexed memory position into the accumulator
-  int addr = (opcode & 0x0F) << 8 | read_ram(_CI);
+  unsigned int addr = (opcode & 0x0F) << 8 | read_ram(_CI);
   inc_CI();
-  int idx = read_index_reg();
+  byte idx = read_index_reg();
   addr = compute_effective_address(idx + addr);
   ACC(read_ram(addr));
 }
@@ -401,7 +409,7 @@ void CARX_instruction(){
 void SOM_instruction(){
   /* OPCODE: 0x6X */
   //SOM = "Soma": Add a value from a given memory position into the accumulator
-  int addr = (opcode & 0x0F) << 8 | read_ram(_CI);
+  unsigned int addr = (opcode & 0x0F) << 8 | read_ram(_CI);
   addr = compute_effective_address(addr);
   inc_CI();
   ACC(_ACC + read_ram(addr));
@@ -411,7 +419,7 @@ void SOM_instruction(){
 void SOMX_instruction(){
   /* OPCODE: 0x7X */
   //SOMX = "Soma indexada": Add a value from a given indexed memory position into the accumulator
-  int addr = (opcode & 0x0F) << 8 | read_ram(_CI);
+  unsigned int addr = (opcode & 0x0F) << 8 | read_ram(_CI);
   inc_CI();
   byte idx = read_index_reg();
   addr = compute_effective_address(idx + addr);
@@ -699,7 +707,7 @@ void TRI_instruction(){
 void PLAN_instruction(){
   /* OPCODE: 0xAX */
   //PLAN = "Pula se ACC negativo": Jump to a given address if ACC is negative
-  int addr = (opcode & 0x0F) << 8 | read_ram(_CI);
+  unsigned int addr = (opcode & 0x0F) << 8 | read_ram(_CI);
   addr = compute_effective_address(addr);
   inc_CI();
   if ((signed char) _ACC < 0){
@@ -710,7 +718,7 @@ void PLAN_instruction(){
 void PLAZ_instruction(){
   /* OPCODE: 0xBX */
   //PLAZ = "Pula se ACC for zero": Jump to a given address if ACC is zero
-  int addr = (opcode & 0x0F) << 8 | read_ram(_CI);
+  unsigned int addr = (opcode & 0x0F) << 8 | read_ram(_CI);
   addr = compute_effective_address(addr);
   inc_CI();
   if (_ACC == 0){
@@ -833,8 +841,9 @@ void CARI_instruction(){
 }
 
 void IND_instruction(){
-  //TODO: Implement-me!
+  indirect_addressing = true;
 }
+
 void shift_rotate_instructions(){
   //TODO: Implement-me!
 }
@@ -843,6 +852,13 @@ void run_one_instruction(){
   unsigned int tmp;
   byte value, channel, function;
   opcode = read_ram(_CI);
+
+  if (scheduled_IND_bit_reset)
+    indirect_addressing = false;
+
+  if (indirect_addressing)
+    scheduled_IND_bit_reset = true;
+
 
   #ifdef DEBUG
   Serial.print("CI: ");
