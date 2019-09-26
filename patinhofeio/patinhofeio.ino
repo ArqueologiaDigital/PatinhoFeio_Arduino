@@ -27,7 +27,7 @@ int SWITCH_COLUMNS[] = {A3, A2, A4, A5, A1, A0};
 int SWITCH_ROWS[] = {8, 10, 11, 12};
 MD_MAX72XX mx = MD_MAX72XX(DATA_PIN, CLK_PIN, CS_PIN, 2);
 
-#define DEMO 4
+#define DEMO 1
 //#define DEBUG
 
 #define INDEX_REG 0
@@ -862,6 +862,7 @@ void run_one_instruction(){
   unsigned int tmp;
   byte value, channel, function;
   opcode = read_ram(_CI);
+  RI(opcode); //para mostrar o opcode no painel
 
   if (scheduled_IND_bit_reset)
     indirect_addressing = false;
@@ -951,9 +952,12 @@ void run_one_instruction(){
 
 void emulator_loop(){
   read_inputs();
-  if (!_PARADO){
+  
+  if (!_PARADO)
     run_one_instruction();
-  }
+    
+  if (_MODO == CICLO_UNICO || _MODO == INSTRUCAO_UNICA)
+    PARADO(true);
 }
 
 bool inputs[4][6];
@@ -1054,7 +1058,6 @@ void partida(){
 }
 
 void send_LED_data(){
-  //mx.control(MD_MAX72XX::UPDATE, MD_MAX72XX::OFF);
   for (int i=0; i<8; i++){
     for (int j=0; j<16; j++){
       mx.setPoint(i, j, leds[i][j]);
@@ -1066,10 +1069,7 @@ void send_LED_data(){
 void loop() {
   
 #if DEMO == 1
-  //This is the most complete blinking demo
-  // which blinks every LED in the panel:
-  register_LEDs_demo();
-  delay(30);
+  emulator_loop();
 
 #elif DEMO == 2
   random_blink_demo();
@@ -1077,8 +1077,11 @@ void loop() {
 #elif DEMO == 3
   sine_wave_demo();
 
-#else
-  emulator_loop();
+#elif DEMO == 4
+  //This is the most complete blinking demo
+  // which blinks every LED in the panel:
+  register_LEDs_demo();
+  delay(30);
 #endif
 
   send_LED_data();  
