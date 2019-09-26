@@ -22,7 +22,7 @@
 //  polled via a chain of three-bit shift-registers
 //  (paralell input, serial output)
 
-#define DEMO 1
+#define DEMO 2
 //#define DEBUG
 
 #define LED_REGISTER_CLK 3
@@ -287,7 +287,7 @@ void register_LEDs_demo() {
     if ((i+0.5) < (6 + 6 * sin(t*360)))
       value |= (1 << i);
   }
-  t+=0.001;
+  t+=0.1;
   DADOS_DO_PAINEL(value);
 
   //the address register will have the a mirrored sine-wave
@@ -691,7 +691,7 @@ void PARE_instruction(){
   //    Holds execution. This can only be recovered by
   //    manually triggering execution again by
   //    pressing the "Partida" (start) button in the panel
-  PARADO(true);
+  //PARADO(true);
   EXTERNO(false);
 }
 
@@ -775,10 +775,10 @@ void SAI_instruction(byte channel){
   /* OPCODE: 0xCX 0x8X */
   /* SAI = "Output data to I/O device" */
   //TODO: handle multiple device channels: m_iodev_write_cb[channel](ACC);
-  delay(1000/300); //This is REALLY BAD emulation-wise but it looks nice :-)
-  Serial.print("TTY:");
-  Serial.write(_ACC);
-  Serial.print('\n');
+  //delay(1000/300); //This is REALLY BAD emulation-wise but it looks nice :-)
+  //Serial.print("TTY:");
+  //Serial.write(_ACC);
+  //Serial.print('\n');
 }
 
 void IO_instructions(){
@@ -958,10 +958,24 @@ void loop() {
 
 #else
   //Actual Patinho Feio Emulation:
-  emulator_loop();
+  Serial.println("LETS DO IT...");
+
+#define MAXINSTRUCTIONS 10000
+  unsigned int delta;
+  unsigned int instructions = 0;
+  unsigned int start = millis();
+  while (instructions++ < MAXINSTRUCTIONS){
+    emulator_loop();
+  }
+  delta = millis() - start;
+  Serial.print(delta);
+  Serial.print("ms => ");
+  Serial.print(float(MAXINSTRUCTIONS)/delta);
+  Serial.println(" kHz");
 #endif
 
   //send_LED_data();
+#if 0
   Serial.print("LEDS:");
   for (int b=0; b < NUM_LEDS; b+=4) {
     byte value = 0;
@@ -972,4 +986,7 @@ void loop() {
 	  Serial.print(value, HEX);
   }
   Serial.print("\n");
+#endif
+
+  
 }
