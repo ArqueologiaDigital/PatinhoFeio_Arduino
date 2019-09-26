@@ -23,11 +23,11 @@
 #define  DATA_PIN  5
 #define CS_PIN    6
 #define CLK_PIN   7
-int SWITCH_COLUMNS[] = {A0, A1, A2, A3, A4, A5};
-int SWITCH_ROWS[] = {8, 10, 11, 13};
+int SWITCH_COLUMNS[] = {A3, A2, A4, A5, A1, A0};
+int SWITCH_ROWS[] = {8, 10, 11, 12};
 MD_MAX72XX mx = MD_MAX72XX(DATA_PIN, CLK_PIN, CS_PIN, 2);
 
-#define DEMO 1
+#define DEMO 4
 //#define DEBUG
 
 #define INDEX_REG 0
@@ -35,7 +35,6 @@ MD_MAX72XX mx = MD_MAX72XX(DATA_PIN, CLK_PIN, CS_PIN, 2);
 #define RAM_SIZE 256
 
 byte RAM[RAM_SIZE];
-bool led[80]; //LIXO
 bool leds[8][16];
 bool _VAI_UM;
 bool _TRANSBORDO;
@@ -56,6 +55,8 @@ bool _EXTERNO; //CPU is waiting interrupt.
 int _MODO;     //CPU operation modes:
 bool indirect_addressing;
 bool scheduled_IND_bit_reset;
+bool memoria_protegida = false;
+bool enderecamento_sequencial = false;
 
 #define NORMAL 1           // normal execution
 #define CICLO_UNICO 2      // single-cycle
@@ -93,7 +94,7 @@ void TRANSBORDO(bool value){
 
 void PARADO(bool value){
   // This represents that the CPU is stopped.
-  // Only a startup command ("PARTIDA") can restart it.
+  // Only a startup command ("PARTIDA") at execution modes (NORMAL, SINGLE-INST,  or SINGLE-CYCLE) can restart it.
   _PARADO = value;
   leds[2][4] = value;
 }
@@ -166,7 +167,7 @@ void MODO(int value){
   int map_col[6] = {11, 13, 14,  8, 12, 15};
   int map_row[6] = { k,  k,  k,  k,  k,  k};
   for (int i=0; i<6; i++){
-    leds[map_row[i]][map_col[i]] = (_MODO == i);
+    leds[map_row[i]][map_col[i]] = (_MODO == i+1);
   }
 }
 
@@ -245,14 +246,11 @@ void load_example_hardcoded_program(){
   RAM[0x28] = 0x0D;
   RAM[0x29] = 0x0A;
 
-  //This will make it run
-  //automatically one at boot:
+  //Entry point:
   CI(0x006);
-  PARADO(false);
 }
 
 void setup() {
-  Serial.begin(115200);
   mx.begin();
   mx.clear();
   int i;
@@ -703,7 +701,7 @@ void PARE_instruction(){
   //    Holds execution. This can only be recovered by
   //    manually triggering execution again by
   //    pressing the "Partida" (start) button in the panel
-  //PARADO(true);
+  PARADO(true);
   EXTERNO(false);
 }
 
@@ -787,7 +785,7 @@ void SAI_instruction(byte channel){
   /* OPCODE: 0xCX 0x8X */
   /* SAI = "Output data to I/O device" */
   //TODO: handle multiple device channels: m_iodev_write_cb[channel](ACC);
-  //delay(1000/300); //This is REALLY BAD emulation-wise but it looks nice :-)
+  delay(1000/300); //This is REALLY BAD emulation-wise but it looks nice :-)
   //Serial.print("TTY:");
   //Serial.write(_ACC);
   //Serial.print('\n');
@@ -942,29 +940,117 @@ void run_one_instruction(){
     case 0xE0: SUS_instruction(); return;
     case 0xF0: PUG_instruction(); return;
     default:
+#ifdef DEBUG
       Serial.print("OPCODE INVALIDO: ");
       Serial.println(opcode, HEX);
+#endif
       PARADO(true);
       return;
     }
 }
 
 void emulator_loop(){
+  read_inputs();
   if (!_PARADO){
     run_one_instruction();
   }
 }
 
-void test_switches(){
-//  static int switch_map[6] = {4, 1, 11, 11, 3, 5};
+bool inputs[4][6];
+void read_switch_matrix(){
+  int col;
+  for (col=0; col<6; col++){
+    for (int j=0; j<6; j++)
+      digitalWrite(SWITCH_COLUMNS[j], j == col ? LOW : HIGH);
+    delay(10);    
+    for (int i=0; i<4; i++)
+      inputs[i][col] = digitalRead(SWITCH_ROWS[i])==LOW;
+  }
+}
 
-    for (int col=0; col<6; col++){
-      for (int j=0; j<6; j++)
-        digitalWrite(SWITCH_COLUMNS[j], j == col ? LOW : HIGH);
-        
-      for (int i=0; i<4; i++)
-        leds[i][col] = digitalRead(SWITCH_ROWS[i])==LOW;
-    }
+void wait_for_buttons_release(){
+  bool pressed = true;
+  int i;
+  while (pressed){
+    read_switch_matrix();
+
+    pressed = false;
+    for (i=0;i<6;i++)
+      if (inputs[2][i]) pressed = true;
+    for (i=0;i<4;i++)
+      if (inputs[1][i]) pressed = true;
+  }
+}
+
+void read_inputs(){
+  int col;
+  read_switch_matrix();
+
+  // read the toggle switches and update DADOS_DO_PAINEL
+  int dados = 0;
+  for (col=0; col<6; col++){
+    if (inputs[0][col]) dados |= (1<<col);
+    if (inputs[3][col]) dados |= (1<<(col+6));
+  }
+  DADOS_DO_PAINEL(dados);
+
+  // when a mode button is pressed, set the corresponding mode:
+  for (col=0; col<6; col++){
+    if (inputs[2][col]) MODO(6-col);
+  }
+
+  // chaves de modos de memória:
+  enderecamento_sequencial = inputs[1][4];
+  memoria_protegida = inputs[1][5];
+
+  // botão "PREPARAÇÂO":
+  if (inputs[1][0]) reset_CPU();
+
+  // botão "ESPERA":
+  if (inputs[1][3]) espera();
+
+  // botão "INTERRUPÇÂO"
+  if (inputs[1][2]) interrupcao();
+
+  // botão "PARTIDA":
+  if (inputs[1][1]) partida();
+}
+
+void espera(){
+//TODO: Implement-me!  
+}
+
+void interrupcao(){
+//TODO: Implement-me!  
+}
+
+void partida(){
+  switch(_MODO){
+    case NORMAL:
+    case CICLO_UNICO:
+    case INSTRUCAO_UNICA:
+      PARADO(false);
+      break;
+      
+    case ENDERECAMENTO:
+      RE(_DADOS_DO_PAINEL);
+      break;
+      
+    case ARMAZENAMENTO:
+      if (!(memoria_protegida && _RE >= 0xF80))
+        write_ram(_RE, _DADOS_DO_PAINEL & 0xFF);
+
+      if (enderecamento_sequencial)
+        RE(_RE+1);
+      break;
+      
+    case EXPOSICAO:
+      RD(read_ram(_RE));
+      if (enderecamento_sequencial)
+        RE(_RE+1);
+      break;
+  }
+  wait_for_buttons_release();
 }
 
 void send_LED_data(){
@@ -978,11 +1064,8 @@ void send_LED_data(){
 }
 
 void loop() {
-
-#if DEMO == 0
-  test_switches();
-
-#elif DEMO == 1
+  
+#if DEMO == 1
   //This is the most complete blinking demo
   // which blinks every LED in the panel:
   register_LEDs_demo();
@@ -995,36 +1078,8 @@ void loop() {
   sine_wave_demo();
 
 #else
-  //Actual Patinho Feio Emulation:
-  Serial.println("LETS DO IT...");
-
-#define MAXINSTRUCTIONS 10000
-  unsigned int delta;
-  unsigned int instructions = 0;
-  unsigned int start = millis();
-  while (instructions++ < MAXINSTRUCTIONS){
-    emulator_loop();
-  }
-  delta = millis() - start;
-  Serial.print(delta);
-  Serial.print("ms => ");
-  Serial.print(float(MAXINSTRUCTIONS)/delta);
-  Serial.println(" kHz");
+  emulator_loop();
 #endif
 
-  send_LED_data();
-#if 0
-  Serial.print("LEDS:");
-  for (int b=0; b < NUM_LEDS; b+=4) {
-    byte value = 0;
-    for (int i=0; i<4; i++){
-      value <<= 1;
-      if (led[b+i]) value |= 1;
-    }
-	  Serial.print(value, HEX);
-  }
-  Serial.print("\n");
-#endif
-
-  
+  send_LED_data();  
 }
