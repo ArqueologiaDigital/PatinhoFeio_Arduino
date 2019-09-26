@@ -16,26 +16,27 @@
 // * 9 white LEDs
 // * 62 red LEDs
 //
-// The LEDs are controlled by a chain of ten 8-bit shift-registers
-//  (serial input, parallel output)
-// The status of the push-buttons and toggle-switches will be
-//  polled via a chain of three-bit shift-registers
-//  (paralell input, serial output)
+// The LEDs are controlled by two MAX7219 modules that control 8x8 LEDs each
+// The push-buttons and toggle-switches are arranged in a 4x6 matrix of inputs.
 
-#define DEMO 2
+#include <MD_MAX72xx.h>
+#define  DATA_PIN  5
+#define CS_PIN    6
+#define CLK_PIN   7
+int SWITCH_COLUMNS[] = {A0, A1, A2, A3, A4, A5};
+int SWITCH_ROWS[] = {8, 10, 11, 13};
+MD_MAX72XX mx = MD_MAX72XX(DATA_PIN, CLK_PIN, CS_PIN, 2);
+
+#define DEMO 1
 //#define DEBUG
-
-#define LED_REGISTER_CLK 3
-#define LED_SERIAL_CLK 2
-#define LED_SERIAL_DATA 4
-#define NUM_LEDS 80
 
 #define INDEX_REG 0
 #define EXTENSION_REG 1
 #define RAM_SIZE 256
 
 byte RAM[RAM_SIZE];
-bool led[NUM_LEDS];
+bool led[80]; //LIXO
+bool leds[8][16];
 bool _VAI_UM;
 bool _TRANSBORDO;
 
@@ -73,97 +74,112 @@ void write_index_reg(byte value){
 
 void DADOS_DO_PAINEL(int value){
   _DADOS_DO_PAINEL = value;
+  int map_col[12] = {3,  4,  7,  6,  1,  2,  0,  5,  1,  2,  0,  5};
+  int map_row[12] = {0,  0,  0,  0,  0,  0,  0,  0,  2,  2,  2,  2};
   for (int i=0; i<12; i++){
-    led[0 + i] = (value & (1 << i));
+    leds[map_row[i]][map_col[i]] = (value & (1 << i));
   }
 }
 
 void VAI_UM(bool value){
   _VAI_UM = value;
-  led[12] = value;
+  leds[2][7] = value;
 }
 
 void TRANSBORDO(bool value){
   _TRANSBORDO = value;
-  led[13] = value;
+  leds[2][6] = value;
 }
 
 void PARADO(bool value){
   // This represents that the CPU is stopped.
   // Only a startup command ("PARTIDA") can restart it.
   _PARADO = value;
-  led[14] = value;
+  leds[2][4] = value;
 }
 
 void EXTERNO(bool value){
   // This represents that the CPU is stopped
   // waiting for an interrupt from an external device.
   _EXTERNO = value;
-  led[15] = value;
+  leds[2][3] = value;
 }
 
 void CI(int value){
   _CI = value;
+  int map_col[12] = {3,  4,  7,  6,  1,  2,  0,  5,  3,  4,  7,  6};
+  int map_row[12] = {1,  1,  1,  1,  1,  1,  1,  1,  7,  7,  7,  7};
   for (int i=0; i<12; i++){
-    led[16 + i] = (value & (1 << i));
+    leds[map_row[i]][map_col[i]] = (value & (1 << i));
   }
 }
 
 void RE(int value){
   _RE = value;
+  int map_col[12] = {3,  4,  7,  6,  1,  2,  0,  5,  1,  2,  0,  5};
+  int map_row[12] = {3,  3,  3,  3,  3,  3,  3,  3,  7,  7,  7,  7};
   for (int i=0; i<12; i++){
-    led[28 + i] = (value & (1 << i));
+    leds[map_row[i]][map_col[i]] = (value & (1 << i));
   }
 }
 
 void RD(int value){
   _RD = value;
+  int map_col[8] = {3,  4,  7,  6,  1,  2,  0,  5};
+  int map_row[8] = {4,  4,  4,  4,  4,  4,  4,  4};
   for (int i=0; i<8; i++){
-    led[40 + i] = (value & (1 << i));
+    leds[map_row[i]][map_col[i]] = (value & (1 << i));
   }
 }
 
 void RI(int value){
   _RI = value;
+  int map_col[8] = {3,  4,  7,  6,  1,  2,  0,  5};
+  int map_row[8] = {6,  6,  6,  6,  6,  6,  6,  6};
   for (int i=0; i<8; i++){
-    led[48 + i] = (value & (1 << i));
+    leds[map_row[i]][map_col[i]] = (value & (1 << i));
   }
 }
 
 void ACC(int value){
   _ACC = value;
+  int map_col[8] = {3,  4,  7,  6,  1,  2,  0,  5};
+  int map_row[8] = {5,  5,  5,  5,  5,  5,  5,  5};
   for (int i=0; i<8; i++){
-    led[56 + i] = (value & (1 << i));
+    leds[map_row[i]][map_col[i]] = (value & (1 << i));
   }
 }
 
 void FASE(int value){
   _FASE = value;
-  for (int i=1; i<=7; i++){
-    led[64 + (i-1)] = (_FASE == i);
+  int k = 0;
+  int map_col[7] = {11, 13, 14, 8, 12, 15, 9};
+  int map_row[7] = { 0,  0,  0, 0,  0,  0, 0};
+  for (int i=0; i<7; i++){
+    leds[map_row[i]][map_col[i]] = (_FASE == i+1);
   }
 }
 
 void MODO(int value){
   _MODO = value;
-  for (int i=1; i<=6; i++){
-    led[71 + (i-1)] = (_MODO == i);
+  int k = 2;
+  int map_col[6] = {11, 13, 14,  8, 12, 15};
+  int map_row[6] = { k,  k,  k,  k,  k,  k};
+  for (int i=0; i<6; i++){
+    leds[map_row[i]][map_col[i]] = (_MODO == i);
   }
 }
 
 void LED_ESPERA(bool value){
   //I think this button did not really have a lamp
-  led[77] = value;
 }
 
 void LED_INTERRUPCAO(bool value){
   //I think this button did not really have a lamp
-  led[78] = value;
 }
 
 void LED_PREPARACAO(bool value){
   //I think this button did not really have a lamp
-  led[79] = value;
 }
 
 void reset_CPU(){
@@ -237,9 +253,15 @@ void load_example_hardcoded_program(){
 
 void setup() {
   Serial.begin(115200);
-  pinMode(LED_SERIAL_CLK, OUTPUT);
-  pinMode(LED_REGISTER_CLK, OUTPUT);
-  pinMode(LED_SERIAL_DATA, OUTPUT);
+  mx.begin();
+  mx.clear();
+  int i;
+  for (i=0; i<6; i++){
+    pinMode(SWITCH_COLUMNS[i], OUTPUT);
+  }
+  for (i=0; i<4; i++){
+    pinMode(SWITCH_ROWS[i], INPUT_PULLUP);
+  }
 
   for (int i=0; i<RAM_SIZE; i++){
     RAM[i] = 0;
@@ -248,34 +270,20 @@ void setup() {
   load_example_hardcoded_program();
 }
 
-void send_LED_data(){
-  for (int i=0; i<NUM_LEDS; i++){
-    digitalWrite(LED_SERIAL_DATA, led[NUM_LEDS-1-i] ? HIGH : LOW);
-    digitalWrite(LED_SERIAL_CLK, LOW);
-    delay(1); //is this delay really needed?
-    digitalWrite(LED_SERIAL_CLK, HIGH);
-  }
-  delay(1); //is this delay really needed?
-  digitalWrite(LED_REGISTER_CLK, LOW);
-  delay(1); //is this delay really needed?
-  digitalWrite(LED_REGISTER_CLK, HIGH);
-  delay(1); //is this delay really needed?
-}
-
-
 #if DEMO
 void sine_wave_demo() {
-  static double t = 0;
-  for (int i=0; i<NUM_LEDS; i++){
-    led[i] = (i < (14 + 14.5 * sin(t*360)));
-  }
-  t+=0.001;
+//  static double t = 0;
+//  for (int i=0; i<NUM_LEDS; i++){
+//    led[i] = (i < (14 + 14.5 * sin(t*360)));
+//  }
+//  t+=0.001;
 }
 
 void random_blink_demo(){
   delay(10);
-  int i = random(0, NUM_LEDS-1);
-  led[i] = !led[i];
+  int i = random(0, 7);
+  int j = random(0, 15);
+  leds[i][j] = !leds[i][j];
 }
 
 void register_LEDs_demo() {
@@ -287,13 +295,17 @@ void register_LEDs_demo() {
     if ((i+0.5) < (6 + 6 * sin(t*360)))
       value |= (1 << i);
   }
-  t+=0.1;
+  t+=0.001;
   DADOS_DO_PAINEL(value);
 
   //the address register will have the a mirrored sine-wave
   //that's why we flip the bits here:
   RE(~value);
 
+  ACC(value/16);
+  RI(value/16);
+  RD(value/16);
+  
   //and let's display an incremental count at
   // the instruction counter register:
   static int count = 0;
@@ -943,12 +955,38 @@ void emulator_loop(){
   }
 }
 
+void test_switches(){
+//  static int switch_map[6] = {4, 1, 11, 11, 3, 5};
+
+    for (int col=0; col<6; col++){
+      for (int j=0; j<6; j++)
+        digitalWrite(SWITCH_COLUMNS[j], j == col ? LOW : HIGH);
+        
+      for (int i=0; i<4; i++)
+        leds[i][col] = digitalRead(SWITCH_ROWS[i])==LOW;
+    }
+}
+
+void send_LED_data(){
+  //mx.control(MD_MAX72XX::UPDATE, MD_MAX72XX::OFF);
+  for (int i=0; i<8; i++){
+    for (int j=0; j<16; j++){
+      mx.setPoint(i, j, leds[i][j]);
+    }
+  }
+  mx.update();
+}
+
 void loop() {
 
-#if DEMO == 1
+#if DEMO == 0
+  test_switches();
+
+#elif DEMO == 1
   //This is the most complete blinking demo
   // which blinks every LED in the panel:
   register_LEDs_demo();
+  delay(30);
 
 #elif DEMO == 2
   random_blink_demo();
@@ -974,7 +1012,7 @@ void loop() {
   Serial.println(" kHz");
 #endif
 
-  //send_LED_data();
+  send_LED_data();
 #if 0
   Serial.print("LEDS:");
   for (int b=0; b < NUM_LEDS; b+=4) {
