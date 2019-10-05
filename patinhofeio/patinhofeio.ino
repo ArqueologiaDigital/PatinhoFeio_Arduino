@@ -1,4 +1,4 @@
-// (c) 2017 Felipe Correa da Silva Sanches <juca@members.fsf.org>
+// (c) 2017,2019 Felipe Correa da Silva Sanches <juca@members.fsf.org>
 // (c) 2017 Tiago Queiroz <https://github.com/belimawr>
 // Licensed under the GNU General Public License, version 2 (or later)
 //
@@ -19,13 +19,30 @@
 // The LEDs are controlled by two MAX7219 modules that control 8x8 LEDs each
 // The push-buttons and toggle-switches are arranged in a 4x6 matrix of inputs.
 
+
+// pinout impressora
+// GND - marrom escuro
+// STROBE - pin 1 - preto 
+// D0 - branco
+// D1 - amarelo
+// D2 - rosa
+// D3 - vermelho
+// D4 - laranja
+// D5 - marrom claro
+// D6 - roxo claro
+// D7 - azul claro
+// BUSY - pin 11 - azul médio
+
+#define CENTRONICS_BUSY 2
+#define REGISTER_CLK 3
+
 #include <MD_MAX72xx.h>
 #define  DATA_PIN  5
 #define CS_PIN    6
 #define CLK_PIN   7
 int SWITCH_COLUMNS[] = {A3, A2, A4, A5, A1, A0};
 int SWITCH_ROWS[] = {8, 10, 11, 12};
-MD_MAX72XX mx = MD_MAX72XX(DATA_PIN, CLK_PIN, CS_PIN, 2);
+MD_MAX72XX mx = MD_MAX72XX(DATA_PIN, CLK_PIN, CS_PIN, 2, 2);
 
 #define DEMO 1
 //#define DEBUG
@@ -250,9 +267,96 @@ void load_example_hardcoded_program(){
   CI(0x006);
 }
 
+void printer_writeByte(char c){
+  while (digitalRead(CENTRONICS_BUSY) == HIGH); // wait for busy to go low
+
+  mx.payloadWrite(0, c); // CHAR DATA
+  
+  mx.payloadWrite(1, 0x00); //STROBE LOW (active low)
+  mx.spiSend();
+  digitalWrite(REGISTER_CLK, HIGH);
+  digitalWrite(REGISTER_CLK, LOW);
+
+  mx.payloadWrite(1, 0xFF); //STROBE HIGH
+  mx.spiSend();
+  digitalWrite(REGISTER_CLK, HIGH);
+  digitalWrite(REGISTER_CLK, LOW);
+}
+
+#define INIT_PRINTER_DEFAULTS '@'
+#define BOLD 'E'
+#define LEFT_MARGIN 'l'
+#define RIGHT_MARGIN 'Q'
+
+void escape_code(char code){
+  printer_writeByte(27);
+  printer_writeByte(code);
+}
+
+void set_immediate_print_mode(){
+  escape_code('i');
+  printer_writeByte(1);
+}
+
+void left_margin(char n_chars){
+  escape_code(LEFT_MARGIN);
+  printer_writeByte(n_chars);
+}
+
+void right_margin(char n_chars){
+  escape_code(RIGHT_MARGIN);
+  printer_writeByte(n_chars);
+}
+
+void printer_writeString(char* str){
+  for (char* ptr=str; *ptr; ptr++){
+    printer_writeByte(*ptr);
+  }
+}
+
+void initial_printer_commands(){
+  escape_code(INIT_PRINTER_DEFAULTS);
+
+  // set unit of line spacing to the minimum vertical increment necessary
+  //...
+  
+  // set the printing area
+  left_margin(5);
+  right_margin(5);
+
+  // select the font
+  escape_code(BOLD);
+  
+  // set the printing position
+  //...
+
+  // send one line's print data + CR + LF
+  printer_writeString("IMPRESSORA OK\r\n");
+
+  // end page with FF
+  //... escape_code(FORM_FEED);
+
+  // end printing with '@'
+  //escape_code(INIT_PRINTER_DEFAULTS);
+}
+
 void setup() {
   mx.begin();
   mx.clear();
+  mx.payloadWrite(0, 0x00); // CHAR DATA  
+  mx.payloadWrite(1, 0xFF); //STROBE HIGH (active low)
+  mx.spiSend();
+
+  pinMode(CENTRONICS_BUSY, INPUT);
+  pinMode(REGISTER_CLK, OUTPUT);
+  digitalWrite(REGISTER_CLK, LOW);
+  delay(100);
+  digitalWrite(REGISTER_CLK, HIGH);
+  delay(100);
+  digitalWrite(REGISTER_CLK, LOW);
+
+  initial_printer_commands();
+  
   int i;
   for (i=0; i<6; i++){
     pinMode(SWITCH_COLUMNS[i], OUTPUT);
@@ -260,7 +364,7 @@ void setup() {
   for (i=0; i<4; i++){
     pinMode(SWITCH_ROWS[i], INPUT_PULLUP);
   }
-
+  
   for (int i=0; i<RAM_SIZE; i++){
     RAM[i] = 0;
   }
@@ -785,7 +889,13 @@ void SAI_instruction(byte channel){
   /* OPCODE: 0xCX 0x8X */
   /* SAI = "Output data to I/O device" */
   //TODO: handle multiple device channels: m_iodev_write_cb[channel](ACC);
-  delay(1000/300); //This is REALLY BAD emulation-wise but it looks nice :-)
+  //delay(1000/300); //This is REALLY BAD emulation-wise but it looks nice :-)
+  
+  if (_ACC=='\n')
+    printer_writeByte('\r');
+
+  printer_writeByte(_ACC);
+
   //Serial.print("TTY:");
   //Serial.write(_ACC);
   //Serial.print('\n');
