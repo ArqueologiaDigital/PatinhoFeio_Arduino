@@ -1151,8 +1151,11 @@ void partida(){
       break;
       
     case ARMAZENAMENTO:
-      if (!(memoria_protegida && _RE >= 0xF80))
-        write_ram(_RE, _DADOS_DO_PAINEL & 0xFF);
+      if (!(memoria_protegida && _RE >= 0xF80)){
+        uint8_t dado = _DADOS_DO_PAINEL & 0xFF;
+        write_ram(_RE, dado);
+        RD(dado);
+      }
 
       if (enderecamento_sequencial)
         RE(_RE+1);
