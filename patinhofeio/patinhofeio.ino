@@ -337,6 +337,8 @@ void printer_writeByte(char c){
   mx.spiSend();
   digitalWrite(REGISTER_CLK, HIGH);
   digitalWrite(REGISTER_CLK, LOW);
+
+  Serial.print(c);
 }
 
 #define INIT_PRINTER_DEFAULTS '@'
@@ -397,15 +399,17 @@ void initial_printer_commands(){
 }
 
 void setup() {
+  Serial.begin(9600);
+
   for (int c=0; c<16; c++)
     canais[c] = NULL;
-    
+
   //canais[0x6] = new Duplex8bits();
   //canais[0x7] = new Duplex8bits();
   canais[0xA] = new TeleType();
   //canais[0xB] = new DECWriter();
   //canais[0xE] = new LeitoraDeFita();
-  
+
   mx.begin();
   mx.clear();
   mx.payloadWrite(0, 0x00); // CHAR DATA  
@@ -1124,6 +1128,9 @@ void emulator_loop(){
     
   if (_MODO == CICLO_UNICO || _MODO == INSTRUCAO_UNICA)
     PARADO(true);
+
+  while (Serial.available())
+    printer_writeByte(Serial.read());
 }
 
 bool inputs[4][6];
