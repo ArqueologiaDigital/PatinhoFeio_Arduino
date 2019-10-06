@@ -20,6 +20,62 @@
 // The push-buttons and toggle-switches are arranged in a 4x6 matrix of inputs.
 
 
+class Interface {
+private:
+  bool controle;
+  bool estado;
+  bool pedido_de_interrupcao;
+  bool permite_interrupcao;
+
+public:
+  Interface();
+  virtual void write(uint8_t value);
+  uint8_t read();
+
+  uint8_t registrador;
+};
+
+#define READY true
+#define BUSY false
+
+Interface::Interface(){
+  this->registrador = 0x00;
+  this->controle = false;
+  this->estado = READY;
+  this->pedido_de_interrupcao = false;
+  this->permite_interrupcao = false;
+}
+
+void Interface::write(uint8_t value){
+  this->registrador = value;
+}
+
+uint8_t Interface::read(){
+  return this->registrador;
+}
+
+Interface* canais[16];
+
+class TeleType : public Interface {
+public:
+  TeleType();
+  void write(uint8_t value);
+};
+
+TeleType::TeleType(){
+}
+
+void TeleType::write(uint8_t value){
+  this->registrador = value;
+  //delay(1000/10); // 10 chars per second. This is REALLY BAD emulation-wise but it looks nice :-)
+
+  if (value=='\n')
+    printer_writeByte('\r');
+
+  printer_writeByte(value);
+}
+
+
 // pinout impressora
 // GND - marrom escuro
 // STROBE - pin 1 - preto 
@@ -341,6 +397,15 @@ void initial_printer_commands(){
 }
 
 void setup() {
+  for (int c=0; c<16; c++)
+    canais[c] = NULL;
+    
+  //canais[0x6] = new Duplex8bits();
+  //canais[0x7] = new Duplex8bits();
+  canais[0xA] = new TeleType();
+  //canais[0xB] = new DECWriter();
+  //canais[0xE] = new LeitoraDeFita();
+  
   mx.begin();
   mx.clear();
   mx.payloadWrite(0, 0x00); // CHAR DATA  
@@ -888,17 +953,8 @@ void ENTR_instruction(byte channel){
 void SAI_instruction(byte channel){
   /* OPCODE: 0xCX 0x8X */
   /* SAI = "Output data to I/O device" */
-  //TODO: handle multiple device channels: m_iodev_write_cb[channel](ACC);
-  //delay(1000/300); //This is REALLY BAD emulation-wise but it looks nice :-)
-  
-  if (_ACC=='\n')
-    printer_writeByte('\r');
-
-  printer_writeByte(_ACC);
-
-  //Serial.print("TTY:");
-  //Serial.write(_ACC);
-  //Serial.print('\n');
+  if (canais[channel])
+    canais[channel]->write(_ACC);
 }
 
 void IO_instructions(){
